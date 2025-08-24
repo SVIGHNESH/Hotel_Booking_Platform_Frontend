@@ -59,59 +59,53 @@ const GrievanceManagement = () => {
   const [detailDialog, setDetailDialog] = useState({ open: false, grievance: null });
   const [responseDialog, setResponseDialog] = useState({ open: false, grievance: null, response: '' });
 
-  // Mock data for demonstration
-  const mockGrievances = [
-    {
-      _id: '1',
-      title: 'Room was not clean',
-      description: 'The room had dirty sheets and bathroom was not cleaned properly.',
-      status: 'open',
-      priority: 'high',
-      category: 'cleanliness',
-      userId: { firstName: 'John', lastName: 'Doe', email: 'john@example.com' },
-      hotelId: { name: 'Grand Hotel', _id: 'h1' },
-      createdAt: new Date().toISOString(),
-      responses: []
-    },
-    {
-      _id: '2',
-      title: 'Booking cancellation issue',
-      description: 'Unable to cancel booking and get refund.',
-      status: 'in-progress',
-      priority: 'medium',
-      category: 'booking',
-      userId: { firstName: 'Jane', lastName: 'Smith', email: 'jane@example.com' },
-      hotelId: { name: 'Beach Resort', _id: 'h2' },
-      createdAt: new Date(Date.now() - 86400000).toISOString(),
-      responses: [{ message: 'We are looking into this issue.', timestamp: new Date().toISOString() }]
-    },
-    {
-      _id: '3',
-      title: 'Staff behavior complaint',
-      description: 'Front desk staff was rude and unhelpful.',
-      status: 'closed',
-      priority: 'low',
-      category: 'service',
-      userId: { firstName: 'Mike', lastName: 'Johnson', email: 'mike@example.com' },
-      hotelId: { name: 'City Inn', _id: 'h3' },
-      createdAt: new Date(Date.now() - 172800000).toISOString(),
-      responses: [
-        { message: 'Thank you for reporting. We have addressed this with our staff.', timestamp: new Date().toISOString() }
-      ]
-    }
-  ];
-
   useEffect(() => {
-    // Using mock data since grievance endpoints are not implemented
-    setGrievances(mockGrievances);
-    setTotalGrievances(mockGrievances.length);
-    setLoading(false);
+    fetchGrievances();
   }, []);
+
+  const fetchGrievances = async () => {
+    try {
+      setLoading(true);
+      
+      // API call to fetch grievances
+      const response = await fetch('/api/admin/grievances', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch grievances');
+      }
+      
+      const data = await response.json();
+      setGrievances(data.grievances || []);
+      setTotalGrievances(data.total || 0);
+    } catch (error) {
+      console.error('Failed to fetch grievances:', error);
+      setGrievances([]);
+      setTotalGrievances(0);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleStatusUpdate = async (grievanceId, newStatus) => {
     try {
-      // Mock API call
-      console.log(`Updating grievance ${grievanceId} to status: ${newStatus}`);
+      // API call to update grievance status
+      const response = await fetch(`/api/admin/grievances/${grievanceId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update status');
+      }
       
       // Update local state
       setGrievances(prev => prev.map(g => 
@@ -129,8 +123,19 @@ const GrievanceManagement = () => {
     try {
       if (!responseDialog.response.trim()) return;
 
-      // Mock API call
-      console.log(`Adding response to grievance ${responseDialog.grievance._id}: ${responseDialog.response}`);
+      // API call to add response to grievance
+      const response = await fetch(`/api/admin/grievances/${responseDialog.grievance._id}/respond`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ message: responseDialog.response })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to add response');
+      }
       
       // Update local state
       setGrievances(prev => prev.map(g => 

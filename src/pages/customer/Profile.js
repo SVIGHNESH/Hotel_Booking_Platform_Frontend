@@ -138,8 +138,19 @@ const Profile = () => {
   const handleSave = async () => {
     setLoading(true);
     try {
-      // Mock API call - replace with actual API
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // API call to update profile
+      const response = await fetch('/api/user/profile', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(profileData)
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update profile');
+      }
       
       // Update user context
       if (updateProfile) {
@@ -194,8 +205,18 @@ const Profile = () => {
 
   const handleDeleteAccount = async () => {
     try {
-      // Mock API call for account deletion
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // API call for account deletion
+      const response = await fetch('/api/user/delete-account', {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to delete account');
+      }
       
       setDeleteDialog(false);
       setSnackbar({

@@ -39,6 +39,7 @@ import {
 } from '@mui/icons-material';
 // Removed date picker imports due to module resolution issues
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 const HotelSearch = () => {
   const [searchFilters, setSearchFilters] = useState({
@@ -58,9 +59,12 @@ const HotelSearch = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalHotels, setTotalHotels] = useState(0);
   const [favorites, setFavorites] = useState(new Set());
   
   const navigate = useNavigate();
+  
+  const hotelsPerPage = 6;
 
   const amenityOptions = [
     { value: 'wifi', label: 'Free WiFi', icon: <Wifi /> },
@@ -69,43 +73,6 @@ const HotelSearch = () => {
     { value: 'gym', label: 'Fitness Center', icon: <FitnessCenter /> },
     { value: 'parking', label: 'Parking', icon: <LocalParking /> },
     { value: 'business', label: 'Business Center', icon: <Business /> }
-  ];
-
-  // Mock hotel data for demonstration
-  const mockHotels = [
-    {
-      id: 1,
-      name: 'Grand Plaza Hotel',
-      location: 'Downtown',
-      rating: 4.5,
-      reviewCount: 234,
-      price: 150,
-      image: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80',
-      amenities: ['wifi', 'pool', 'restaurant', 'gym'],
-      description: 'Luxury hotel in the heart of downtown with premium amenities.'
-    },
-    {
-      id: 2,
-      name: 'Seaside Resort',
-      location: 'Beachfront',
-      rating: 4.8,
-      reviewCount: 156,
-      price: 220,
-      image: 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80',
-      amenities: ['wifi', 'pool', 'restaurant', 'parking'],
-      description: 'Beautiful beachfront resort with ocean views and spa services.'
-    },
-    {
-      id: 3,
-      name: 'Business Inn',
-      location: 'Business District',
-      rating: 4.2,
-      reviewCount: 89,
-      price: 120,
-      image: 'https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80',
-      amenities: ['wifi', 'business', 'restaurant', 'parking'],
-      description: 'Modern business hotel with conference facilities and meeting rooms.'
-    }
   ];
 
   useEffect(() => {
@@ -118,46 +85,63 @@ const HotelSearch = () => {
     setError(null);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const token = localStorage.getItem('token');
+      const headers = { Authorization: `Bearer ${token}` };
+
+      // Build query parameters
+      const params = new URLSearchParams();
+      if (searchFilters.location) params.append('location', searchFilters.location);
+      if (searchFilters.priceRange[0] > 0) params.append('minPrice', searchFilters.priceRange[0]);
+      if (searchFilters.priceRange[1] < 1000) params.append('maxPrice', searchFilters.priceRange[1]);
+      if (searchFilters.rating > 0) params.append('minRating', searchFilters.rating);
+      params.append('page', currentPage);
+      params.append('limit', hotelsPerPage);
+
+      const response = await axios.get(`/api/customer/hotels?${params.toString()}`, { headers });
       
-      // Filter mock data based on search criteria
-      let filteredHotels = mockHotels.filter(hotel => {
-        const matchesLocation = !searchFilters.location || 
-          hotel.location.toLowerCase().includes(searchFilters.location.toLowerCase()) ||
-          hotel.name.toLowerCase().includes(searchFilters.location.toLowerCase());
+      if (response.data.success) {
+        const allHotels = response.data.data || [];
         
-        const matchesPrice = hotel.price >= searchFilters.priceRange[0] && 
-          hotel.price <= searchFilters.priceRange[1];
-        
-        const matchesRating = hotel.rating >= searchFilters.rating;
-        
-        const matchesAmenities = searchFilters.amenities.length === 0 ||
-          searchFilters.amenities.every(amenity => hotel.amenities.includes(amenity));
-        
-        return matchesLocation && matchesPrice && matchesRating && matchesAmenities;
-      });
+        // Filter hotels that are approved only
+        let filteredHotels = allHotels.filter(hotel => 
+          hotel.verificationStatus === 'approved'
+        );
 
-      // Sort hotels
-      switch (searchFilters.sortBy) {
-        case 'price-low':
-          filteredHotels.sort((a, b) => a.price - b.price);
-          break;
-        case 'price-high':
-          filteredHotels.sort((a, b) => b.price - a.price);
-          break;
-        case 'rating':
-          filteredHotels.sort((a, b) => b.rating - a.rating);
-          break;
-        default:
-          // relevance - keep original order
-          break;
+        // Apply additional client-side filters
+        if (searchFilters.amenities.length > 0) {
+          filteredHotels = filteredHotels.filter(hotel =>
+            searchFilters.amenities.some(amenity => 
+              hotel.amenities?.includes(amenity)
+            )
+          );
+        }
+
+        // Apply sorting
+        if (searchFilters.sortBy === 'price-low') {
+          filteredHotels.sort((a, b) => {
+            const priceA = a.rooms?.[0]?.pricePerNight || 0;
+            const priceB = b.rooms?.[0]?.pricePerNight || 0;
+            return priceA - priceB;
+          });
+        } else if (searchFilters.sortBy === 'price-high') {
+          filteredHotels.sort((a, b) => {
+            const priceA = a.rooms?.[0]?.pricePerNight || 0;
+            const priceB = b.rooms?.[0]?.pricePerNight || 0;
+            return priceB - priceA;
+          });
+        } else if (searchFilters.sortBy === 'rating') {
+          filteredHotels.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+        }
+
+        setHotels(filteredHotels);
+        setTotalHotels(filteredHotels.length);
+      } else {
+        setError('Failed to load hotels');
       }
-
-      setHotels(filteredHotels);
-      setTotalPages(Math.ceil(filteredHotels.length / 6));
-    } catch (err) {
+    } catch (error) {
+      console.error('Failed to search hotels:', error);
       setError('Failed to search hotels. Please try again.');
+      setHotels([]);
     } finally {
       setLoading(false);
     }
@@ -389,21 +373,24 @@ const HotelSearch = () => {
 
                 <Grid container spacing={3}>
                   {hotels.map((hotel) => (
-                    <Grid item xs={12} md={6} lg={4} key={hotel.id}>
+                    <Grid item xs={12} md={6} lg={4} key={hotel._id || hotel.id}>
                       <Card 
                         sx={{ 
                           height: '100%', 
                           cursor: 'pointer',
                           '&:hover': { transform: 'translateY(-2px)', transition: 'transform 0.2s' }
                         }}
-                        onClick={() => handleHotelClick(hotel.id)}
+                        onClick={() => handleHotelClick(hotel._id || hotel.id)}
                       >
                         <Box sx={{ position: 'relative' }}>
                           <CardMedia
                             component="img"
                             height="200"
-                            image={hotel.image}
+                            image={hotel.images?.[0] || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80'}
                             alt={hotel.name}
+                            onError={(e) => {
+                              e.target.src = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80';
+                            }}
                           />
                           <IconButton
                             sx={{ 
@@ -414,10 +401,10 @@ const HotelSearch = () => {
                             }}
                             onClick={(e) => {
                               e.stopPropagation();
-                              toggleFavorite(hotel.id);
+                              toggleFavorite(hotel._id || hotel.id);
                             }}
                           >
-                            {favorites.has(hotel.id) ? (
+                            {favorites.has(hotel._id || hotel.id) ? (
                               <Favorite color="error" />
                             ) : (
                               <FavoriteOutlined />
@@ -433,23 +420,23 @@ const HotelSearch = () => {
                           <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                             <LocationOn color="action" sx={{ fontSize: 16, mr: 0.5 }} />
                             <Typography variant="body2" color="text.secondary">
-                              {hotel.location}
+                              {hotel.address?.city || 'Location'}, {hotel.address?.state || ''}
                             </Typography>
                           </Box>
                           
                           <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                            <Rating value={hotel.rating} precision={0.1} size="small" readOnly />
+                            <Rating value={hotel.rating || 0} precision={0.1} size="small" readOnly />
                             <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
-                              ({hotel.reviewCount} reviews)
+                              ({hotel.reviewCount || 0} reviews)
                             </Typography>
                           </Box>
                           
                           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                            {hotel.description}
+                            {hotel.description || 'Modern hotel with great amenities and service.'}
                           </Typography>
                           
                           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 2 }}>
-                            {hotel.amenities.slice(0, 3).map((amenity) => {
+                            {(hotel.amenities || []).slice(0, 3).map((amenity) => {
                               const amenityInfo = amenityOptions.find(a => a.value === amenity);
                               return amenityInfo ? (
                                 <Chip
@@ -461,7 +448,7 @@ const HotelSearch = () => {
                                 />
                               ) : null;
                             })}
-                            {hotel.amenities.length > 3 && (
+                            {(hotel.amenities || []).length > 3 && (
                               <Chip
                                 label={`+${hotel.amenities.length - 3} more`}
                                 size="small"
@@ -473,7 +460,7 @@ const HotelSearch = () => {
                           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <Box>
                               <Typography variant="h6" color="primary">
-                                ₹{hotel.price}
+                                {hotel.rooms?.[0]?.pricePerNight ? `₹${hotel.rooms[0].pricePerNight}` : 'Contact for price'}
                               </Typography>
                               <Typography variant="body2" color="text.secondary">
                                 per night

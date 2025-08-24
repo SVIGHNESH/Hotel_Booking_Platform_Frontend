@@ -31,6 +31,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 const Dashboard = () => {
   const [stats, setStats] = useState({
@@ -44,79 +45,10 @@ const Dashboard = () => {
   const [recommendations, setRecommendations] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   
   const { user } = useAuth();
   const navigate = useNavigate();
-
-  // Mock data for demonstration
-  const mockData = {
-    stats: {
-      totalBookings: 12,
-      upcomingBookings: 2,
-      completedBookings: 10,
-      favoritesCount: 5
-    },
-    recentBookings: [
-      {
-        id: 1,
-        hotelName: 'Grand Plaza Hotel',
-        location: 'Downtown',
-        checkIn: '2025-09-15',
-        checkOut: '2025-09-18',
-        status: 'confirmed',
-        amount: 450,
-        image: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80'
-      },
-      {
-        id: 2,
-        hotelName: 'Seaside Resort',
-        location: 'Beachfront',
-        checkIn: '2025-08-20',
-        checkOut: '2025-08-25',
-        status: 'completed',
-        amount: 1100,
-        image: 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80'
-      }
-    ],
-    recommendations: [
-      {
-        id: 3,
-        name: 'Mountain View Lodge',
-        location: 'Mountain Resort',
-        rating: 4.6,
-        price: 180,
-        image: 'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80',
-        discount: 15
-      },
-      {
-        id: 4,
-        name: 'City Center Hotel',
-        location: 'City Center',
-        rating: 4.3,
-        price: 140,
-        image: 'https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80',
-        discount: 20
-      }
-    ],
-    notifications: [
-      {
-        id: 1,
-        type: 'booking',
-        title: 'Booking Confirmation',
-        message: 'Your booking at Grand Plaza Hotel has been confirmed.',
-        time: '2 hours ago',
-        read: false
-      },
-      {
-        id: 2,
-        type: 'offer',
-        title: 'Special Offer',
-        message: '20% off on weekend bookings at partner hotels.',
-        time: '1 day ago',
-        read: false
-      }
-    ]
-  };
 
   useEffect(() => {
     loadDashboardData();
@@ -125,16 +57,62 @@ const Dashboard = () => {
 
   const loadDashboardData = async () => {
     setLoading(true);
+    setError('');
+    
     try {
-      // Simulate API calls
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      setStats(mockData.stats);
-      setRecentBookings(mockData.recentBookings);
-      setRecommendations(mockData.recommendations);
-      setNotifications(mockData.notifications);
+      const token = localStorage.getItem('token');
+      const headers = { Authorization: `Bearer ${token}` };
+
+      // Load customer bookings to calculate stats
+      const bookingsResponse = await axios.get('/api/customer/bookings', { headers });
+      if (bookingsResponse.data.success) {
+        const bookings = bookingsResponse.data.data || [];
+        
+        // Calculate stats from real bookings
+        const now = new Date();
+        const upcoming = bookings.filter(booking => 
+          new Date(booking.bookingDetails.checkIn) > now && 
+          booking.status === 'confirmed'
+        );
+        const completed = bookings.filter(booking => 
+          new Date(booking.bookingDetails.checkOut) < now &&
+          booking.status === 'confirmed'
+        );
+
+        setStats({
+          totalBookings: bookings.length,
+          upcomingBookings: upcoming.length,
+          completedBookings: completed.length,
+          favoritesCount: 0 // Will be implemented when favorites feature is added
+        });
+
+        // Set recent bookings (last 5)
+        setRecentBookings(bookings.slice(0, 5));
+      }
+
+      // Load hotel recommendations (available hotels)
+      try {
+        const hotelsResponse = await axios.get('/api/customer/hotels', { headers });
+        if (hotelsResponse.data.success) {
+          const hotels = hotelsResponse.data.data || [];
+          // Get top rated hotels as recommendations
+          const topHotels = hotels
+            .filter(hotel => hotel.verificationStatus === 'approved')
+            .sort((a, b) => (b.rating || 0) - (a.rating || 0))
+            .slice(0, 4);
+          setRecommendations(topHotels);
+        }
+      } catch (hotelError) {
+        console.log('Hotels not available:', hotelError.message);
+        setRecommendations([]);
+      }
+
+      // Set empty notifications for now (can be enhanced later)
+      setNotifications([]);
+
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
+      setError('Failed to load dashboard data. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -293,26 +271,29 @@ const Dashboard = () => {
                 </Alert>
               ) : (
                 recentBookings.map((booking, index) => (
-                  <Box key={booking.id}>
+                  <Box key={booking._id || booking.id}>
                     <Box sx={{ display: 'flex', p: 2, '&:hover': { bgcolor: 'grey.50' } }}>
                       <Box
                         component="img"
                         sx={{ width: 80, height: 80, borderRadius: 1, mr: 2 }}
-                        src={booking.image}
-                        alt={booking.hotelName}
+                        src={booking.hotelId?.images?.[0] || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80'}
+                        alt={booking.hotelId?.name || 'Hotel'}
+                        onError={(e) => {
+                          e.target.src = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80';
+                        }}
                       />
                       <Box sx={{ flexGrow: 1 }}>
                         <Typography variant="subtitle1" fontWeight="bold">
-                          {booking.hotelName}
+                          {booking.hotelId?.name || 'Hotel Name'}
                         </Typography>
                         <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
                           <LocationOn color="action" sx={{ fontSize: 16, mr: 0.5 }} />
                           <Typography variant="body2" color="text.secondary">
-                            {booking.location}
+                            {booking.hotelId?.address?.city || 'Location'}, {booking.hotelId?.address?.state || ''}
                           </Typography>
                         </Box>
                         <Typography variant="body2" color="text.secondary">
-                          {booking.checkIn} - {booking.checkOut}
+                          {new Date(booking.bookingDetails.checkIn).toLocaleDateString()} - {new Date(booking.bookingDetails.checkOut).toLocaleDateString()}
                         </Typography>
                       </Box>
                       <Box sx={{ textAlign: 'right' }}>
@@ -323,7 +304,7 @@ const Dashboard = () => {
                           sx={{ mb: 1 }}
                         />
                         <Typography variant="h6" color="primary">
-                          ₹{booking.amount}
+                          ₹{booking.totalAmount || 0}
                         </Typography>
                       </Box>
                     </Box>
@@ -400,29 +381,24 @@ const Dashboard = () => {
               </Typography>
               <Grid container spacing={2}>
                 {recommendations.map((hotel) => (
-                  <Grid item xs={12} sm={6} md={3} key={hotel.id}>
+                  <Grid item xs={12} sm={6} md={3} key={hotel._id || hotel.id}>
                     <Card 
                       sx={{ 
                         cursor: 'pointer',
                         '&:hover': { transform: 'translateY(-2px)', transition: 'transform 0.2s' }
                       }}
-                      onClick={() => navigate(`/customer/hotel/${hotel.id}`)}
+                      onClick={() => navigate(`/customer/hotel/${hotel._id || hotel.id}`)}
                     >
                       <Box sx={{ position: 'relative' }}>
                         <Box
                           component="img"
                           sx={{ width: '100%', height: 140, objectFit: 'cover' }}
-                          src={hotel.image}
+                          src={hotel.images?.[0] || 'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80'}
                           alt={hotel.name}
+                          onError={(e) => {
+                            e.target.src = 'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80';
+                          }}
                         />
-                        {hotel.discount && (
-                          <Chip
-                            label={`${hotel.discount}% OFF`}
-                            color="error"
-                            size="small"
-                            sx={{ position: 'absolute', top: 8, left: 8 }}
-                          />
-                        )}
                       </Box>
                       <CardContent sx={{ p: 2 }}>
                         <Typography variant="subtitle1" fontWeight="bold" noWrap>
@@ -431,16 +407,16 @@ const Dashboard = () => {
                         <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
                           <LocationOn color="action" sx={{ fontSize: 14, mr: 0.5 }} />
                           <Typography variant="body2" color="text.secondary" noWrap>
-                            {hotel.location}
+                            {hotel.address?.city || 'Location'}, {hotel.address?.state || ''}
                           </Typography>
                         </Box>
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 1 }}>
                           <Box sx={{ display: 'flex', alignItems: 'center' }}>
                             <Star color="warning" sx={{ fontSize: 16, mr: 0.5 }} />
-                            <Typography variant="body2">{hotel.rating}</Typography>
+                            <Typography variant="body2">{hotel.rating || 'New'}</Typography>
                           </Box>
                           <Typography variant="h6" color="primary">
-                            ₹{hotel.price}
+                            {hotel.rooms?.[0]?.pricePerNight ? `₹${hotel.rooms[0].pricePerNight}` : 'Contact'}
                           </Typography>
                         </Box>
                       </CardContent>

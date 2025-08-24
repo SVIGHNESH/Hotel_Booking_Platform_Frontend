@@ -28,7 +28,8 @@ import {
   Grid,
   Card,
   CardContent,
-  Rating
+  Rating,
+  Snackbar
 } from '@mui/material';
 import {
   Search,
@@ -57,17 +58,19 @@ const HotelVerification = () => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [detailDialog, setDetailDialog] = useState({ open: false, hotel: null });
   const [confirmDialog, setConfirmDialog] = useState({ open: false, action: '', hotel: null });
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const fetchPendingHotels = React.useCallback(async () => {
     try {
       setLoading(true);
       const params = {
         page: page + 1,
-        limit: rowsPerPage,
-        verified: 'false' // Only get unverified hotels
+        limit: rowsPerPage
       };
 
-      const response = await axios.get('/api/admin/hotels', {
+      const response = await axios.get('/api/admin/hotels/pending', {
         params,
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
@@ -94,8 +97,14 @@ const HotelVerification = () => {
 
   const handleVerificationAction = async (action, hotelId) => {
     try {
+      setIsProcessing(true);
+      setError('');
+      
       const endpoint = `/api/admin/hotels/${hotelId}/verify`;
-      const payload = { isVerified: action === 'approve' };
+      const payload = { 
+        isVerified: action === 'approve',
+        rejectionReason: action === 'reject' ? rejectionReason : undefined
+      };
 
       const response = await axios.put(endpoint, payload, {
         headers: {
@@ -104,14 +113,28 @@ const HotelVerification = () => {
       });
 
       if (response.data.success) {
+        const actionText = action === 'approve' ? 'approved' : 'rejected';
+        setSuccessMessage(`Hotel ${actionText} successfully!`);
         fetchPendingHotels(); // Refresh the list
         setConfirmDialog({ open: false, action: '', hotel: null });
+        setRejectionReason('');
+        
+        // Show success message for 3 seconds
+        setTimeout(() => setSuccessMessage(''), 3000);
       } else {
         setError(response.data.message || 'Action failed');
       }
     } catch (error) {
       console.error('Verification action error:', error);
-      setError('Failed to perform action');
+      if (error.response?.status === 401) {
+        setError('You are not authorized to perform this action. Please login again.');
+      } else if (error.response?.status === 404) {
+        setError('Hotel not found. It may have been already processed.');
+      } else {
+        setError(error.response?.data?.message || 'Failed to perform action. Please try again.');
+      }
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -158,6 +181,12 @@ const HotelVerification = () => {
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
+        </Alert>
+      )}
+
+      {successMessage && (
+        <Alert severity="success" sx={{ mb: 3 }}>
+          {successMessage}
         </Alert>
       )}
 
@@ -281,12 +310,23 @@ const HotelVerification = () => {
                       {new Date(hotel.createdAt).toLocaleDateString()}
                     </TableCell>
                     <TableCell>
-                      <Chip
-                        icon={<Pending />}
-                        label="Pending Verification"
-                        color="warning"
-                        size="small"
-                      />
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Chip
+                          icon={<Pending />}
+                          label="Pending Verification"
+                          color="warning"
+                          size="small"
+                          variant="outlined"
+                        />
+                        {hotel.rejectionReason && (
+                          <Chip
+                            label="Previously Rejected"
+                            color="error"
+                            size="small"
+                            variant="outlined"
+                          />
+                        )}
+                      </Box>
                     </TableCell>
                     <TableCell>
                       <IconButton
@@ -345,31 +385,75 @@ const HotelVerification = () => {
       </Menu>
 
       {/* Confirmation Dialog */}
-      <Dialog open={confirmDialog.open} onClose={() => setConfirmDialog({ open: false, action: '', hotel: null })}>
-        <DialogTitle>Confirm {confirmDialog.action === 'approve' ? 'Approval' : 'Rejection'}</DialogTitle>
+      <Dialog 
+        open={confirmDialog.open} 
+        onClose={() => {
+          setConfirmDialog({ open: false, action: '', hotel: null });
+          setRejectionReason('');
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          Confirm {confirmDialog.action === 'approve' ? 'Approval' : 'Rejection'}
+        </DialogTitle>
         <DialogContent>
-          Are you sure you want to {confirmDialog.action} hotel "{confirmDialog.hotel?.name}"?
+          <Typography variant="body1" gutterBottom>
+            Are you sure you want to {confirmDialog.action} hotel "{confirmDialog.hotel?.name}"?
+          </Typography>
+          
           {confirmDialog.action === 'approve' && (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              This will allow the hotel to start accepting bookings.
-            </Typography>
+            <Alert severity="info" sx={{ mt: 2 }}>
+              This will allow the hotel to start accepting bookings and be visible to customers.
+            </Alert>
           )}
+          
           {confirmDialog.action === 'reject' && (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              This will prevent the hotel from being listed on the platform.
-            </Typography>
+            <Box sx={{ mt: 2 }}>
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                This will prevent the hotel from being listed on the platform.
+              </Alert>
+              <TextField
+                fullWidth
+                multiline
+                rows={3}
+                label="Rejection Reason (Required)"
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="Please provide a reason for rejection (e.g., incomplete documentation, invalid license, etc.)"
+                required
+                variant="outlined"
+                helperText="This reason will be sent to the hotel owner"
+              />
+            </Box>
           )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmDialog({ open: false, action: '', hotel: null })}>
+        <DialogActions sx={{ p: 2 }}>
+          <Button 
+            onClick={() => {
+              setConfirmDialog({ open: false, action: '', hotel: null });
+              setRejectionReason('');
+            }}
+            disabled={isProcessing}
+          >
             Cancel
           </Button>
           <Button 
             onClick={() => handleVerificationAction(confirmDialog.action, confirmDialog.hotel?._id)}
             color={confirmDialog.action === 'approve' ? 'success' : 'error'}
             variant="contained"
+            disabled={
+              isProcessing || 
+              (confirmDialog.action === 'reject' && !rejectionReason.trim())
+            }
+            startIcon={isProcessing ? <CircularProgress size={16} /> : null}
           >
-            {confirmDialog.action === 'approve' ? 'Approve' : 'Reject'}
+            {isProcessing 
+              ? 'Processing...' 
+              : confirmDialog.action === 'approve' 
+                ? 'Approve Hotel' 
+                : 'Reject Hotel'
+            }
           </Button>
         </DialogActions>
       </Dialog>
@@ -438,7 +522,10 @@ const HotelVerification = () => {
 
               <Box sx={{ mt: 3, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
                 <Typography variant="subtitle2" color="primary" gutterBottom>
-                  Verification Decision:
+                  Admin Verification Decision:
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 2 }}>
+                  Review all the hotel information above and decide whether to approve or reject this hotel registration.
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 2 }}>
                   <Button
@@ -449,6 +536,7 @@ const HotelVerification = () => {
                       setDetailDialog({ open: false, hotel: null });
                       handleConfirmAction('approve', detailDialog.hotel);
                     }}
+                    disabled={isProcessing}
                   >
                     Approve Hotel
                   </Button>
@@ -460,10 +548,22 @@ const HotelVerification = () => {
                       setDetailDialog({ open: false, hotel: null });
                       handleConfirmAction('reject', detailDialog.hotel);
                     }}
+                    disabled={isProcessing}
                   >
                     Reject Hotel
                   </Button>
                 </Box>
+                
+                {detailDialog.hotel?.rejectionReason && (
+                  <Box sx={{ mt: 2, p: 2, bgcolor: 'error.50', borderRadius: 1 }}>
+                    <Typography variant="subtitle2" color="error.main" gutterBottom>
+                      Previous Rejection Reason:
+                    </Typography>
+                    <Typography variant="body2" color="error.dark">
+                      {detailDialog.hotel.rejectionReason}
+                    </Typography>
+                  </Box>
+                )}
               </Box>
             </Box>
           )}

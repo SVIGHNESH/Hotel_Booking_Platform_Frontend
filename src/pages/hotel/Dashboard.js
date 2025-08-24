@@ -7,492 +7,294 @@ import {
   Box,
   Card,
   CardContent,
-  IconButton,
   Avatar,
-  LinearProgress,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
-  Divider,
-  Chip,
-  Button
+  Alert,
+  Button,
+  CircularProgress,
+  Chip
 } from '@mui/material';
 import {
-  TrendingUp,
-  Hotel,
-  People,
-  Star,
-  AttachMoney,
-  CalendarToday,
-  Notifications,
+  Pending,
   CheckCircle,
   Cancel,
-  Pending,
-  MoreVert,
-  Visibility,
-  Edit
+  Email,
+  Phone,
+  Refresh
 } from '@mui/icons-material';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
-import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 const HotelDashboard = () => {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [dashboardData, setDashboardData] = useState({
-    stats: {
-      totalRooms: 0,
-      occupiedRooms: 0,
-      totalBookings: 0,
-      revenue: 0,
-      averageRating: 0,
-      pendingCheckIns: 0
-    },
-    recentBookings: [],
-    revenueData: [],
-    occupancyData: [],
-    ratingDistribution: []
-  });
+  const [error, setError] = useState('');
+  const [hotelProfile, setHotelProfile] = useState(null);
+  const [verificationStatus, setVerificationStatus] = useState(null);
 
   useEffect(() => {
-    loadDashboardData();
+    loadHotelProfile();
   }, []);
 
-  const loadDashboardData = async () => {
+  const loadHotelProfile = async () => {
     setLoading(true);
+    setError('');
     try {
-      // Mock API call - replace with actual API
-      const mockData = {
-        stats: {
-          totalRooms: 45,
-          occupiedRooms: 32,
-          totalBookings: 128,
-          revenue: 15420,
-          averageRating: 4.3,
-          pendingCheckIns: 8
-        },
-        recentBookings: [
-          {
-            id: 'BK001',
-            customerName: 'John Smith',
-            roomNumber: '201',
-            roomType: 'Deluxe King',
-            checkIn: '2024-12-25',
-            checkOut: '2024-12-28',
-            status: 'confirmed',
-            amount: 450,
-            guests: 2
-          },
-          {
-            id: 'BK002',
-            customerName: 'Sarah Johnson',
-            roomNumber: '315',
-            roomType: 'Suite',
-            checkIn: '2024-12-24',
-            checkOut: '2024-12-27',
-            status: 'checked-in',
-            amount: 680,
-            guests: 2
-          },
-          {
-            id: 'BK003',
-            customerName: 'Mike Wilson',
-            roomNumber: '102',
-            roomType: 'Standard Double',
-            checkIn: '2024-12-26',
-            checkOut: '2024-12-29',
-            status: 'pending',
-            amount: 320,
-            guests: 4
-          },
-          {
-            id: 'BK004',
-            customerName: 'Emily Davis',
-            roomNumber: '408',
-            roomType: 'Ocean View',
-            checkIn: '2024-12-23',
-            checkOut: '2024-12-25',
-            status: 'checked-out',
-            amount: 520,
-            guests: 2
-          }
-        ],
-        revenueData: [
-          { month: 'Jan', revenue: 12000, bookings: 45 },
-          { month: 'Feb', revenue: 14500, bookings: 52 },
-          { month: 'Mar', revenue: 16800, bookings: 58 },
-          { month: 'Apr', revenue: 15200, bookings: 54 },
-          { month: 'May', revenue: 18900, bookings: 67 },
-          { month: 'Jun', revenue: 22100, bookings: 78 },
-          { month: 'Jul', revenue: 25400, bookings: 89 },
-          { month: 'Aug', revenue: 24200, bookings: 85 },
-          { month: 'Sep', revenue: 20800, bookings: 72 },
-          { month: 'Oct', revenue: 19200, bookings: 68 },
-          { month: 'Nov', revenue: 17500, bookings: 62 },
-          { month: 'Dec', revenue: 15420, bookings: 55 }
-        ],
-        occupancyData: [
-          { date: '12/20', occupied: 28, total: 45 },
-          { date: '12/21', occupied: 32, total: 45 },
-          { date: '12/22', occupied: 35, total: 45 },
-          { date: '12/23', occupied: 38, total: 45 },
-          { date: '12/24', occupied: 42, total: 45 },
-          { date: '12/25', occupied: 40, total: 45 },
-          { date: '12/26', occupied: 37, total: 45 }
-        ],
-        ratingDistribution: [
-          { rating: '5 Stars', count: 45, color: '#4CAF50' },
-          { rating: '4 Stars', count: 28, color: '#8BC34A' },
-          { rating: '3 Stars', count: 12, color: '#FFC107' },
-          { rating: '2 Stars', count: 4, color: '#FF9800' },
-          { rating: '1 Star', count: 2, color: '#F44336' }
-        ]
-      };
+      const response = await axios.get('/api/hotel/profile', {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
 
-      setDashboardData(mockData);
+      if (response.data.success) {
+        const hotel = response.data.data;
+        setHotelProfile(hotel);
+        setVerificationStatus({
+          isVerified: hotel.isVerified,
+          isActive: hotel.isActive,
+          rejectionReason: hotel.rejectionReason,
+          verifiedAt: hotel.verifiedAt,
+          rejectedAt: hotel.rejectedAt
+        });
+      } else {
+        setError('Failed to load hotel profile');
+      }
     } catch (error) {
-      console.error('Failed to load dashboard data:', error);
+      console.error('Failed to load hotel profile:', error);
+      if (error.response?.status === 401) {
+        setError('Please login again to access your hotel dashboard');
+      } else if (error.response?.status === 404) {
+        setError('Hotel profile not found. Please complete your registration.');
+      } else {
+        setError('Failed to load hotel information. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'confirmed': return 'primary';
-      case 'checked-in': return 'success';
-      case 'checked-out': return 'default';
-      case 'pending': return 'warning';
-      case 'cancelled': return 'error';
-      default: return 'default';
-    }
-  };
-
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'confirmed': return <CheckCircle />;
-      case 'checked-in': return <CheckCircle />;
-      case 'checked-out': return <CheckCircle />;
-      case 'pending': return <Pending />;
-      case 'cancelled': return <Cancel />;
-      default: return <Pending />;
-    }
-  };
-
-  const occupancyRate = dashboardData.stats.totalRooms > 0 
-    ? (dashboardData.stats.occupiedRooms / dashboardData.stats.totalRooms * 100).toFixed(1)
-    : 0;
-
   if (loading) {
     return (
       <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-        <LinearProgress />
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
+          <CircularProgress size={60} />
+        </Box>
       </Container>
     );
   }
 
+  if (error) {
+    return (
+      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+        <Button 
+          variant="contained" 
+          startIcon={<Refresh />} 
+          onClick={loadHotelProfile}
+        >
+          Retry
+        </Button>
+      </Container>
+    );
+  }
+
+  // Show verification status screen
+  if (!verificationStatus?.isVerified) {
+    return (
+      <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
+        <Paper elevation={3} sx={{ p: 4 }}>
+          <Box sx={{ textAlign: 'center', mb: 3 }}>
+            <Avatar 
+              sx={{ 
+                width: 80, 
+                height: 80, 
+                mx: 'auto', 
+                mb: 2,
+                bgcolor: verificationStatus?.rejectionReason ? 'error.main' : 'warning.main'
+              }}
+            >
+              {verificationStatus?.rejectionReason ? <Cancel fontSize="large" /> : <Pending fontSize="large" />}
+            </Avatar>
+            <Typography variant="h4" gutterBottom>
+              {hotelProfile?.name || 'Your Hotel'}
+            </Typography>
+            
+            {verificationStatus?.rejectionReason ? (
+              <>
+                <Chip 
+                  label="Application Rejected" 
+                  color="error" 
+                  size="large" 
+                  sx={{ mb: 3, fontSize: '1rem', py: 2 }}
+                />
+                <Alert severity="error" sx={{ textAlign: 'left', mb: 3 }}>
+                  <Typography variant="h6" gutterBottom>
+                    Your hotel registration has been rejected
+                  </Typography>
+                  <Typography variant="body1" sx={{ mb: 2 }}>
+                    <strong>Rejection Reason:</strong>
+                  </Typography>
+                  <Typography variant="body1" sx={{ mb: 2, fontStyle: 'italic' }}>
+                    "{verificationStatus.rejectionReason}"
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Rejected on:</strong> {new Date(verificationStatus.rejectedAt).toLocaleDateString()}
+                  </Typography>
+                </Alert>
+                
+                <Typography variant="body1" sx={{ mb: 3 }}>
+                  Please address the issues mentioned above and contact our support team for re-evaluation.
+                </Typography>
+                
+                <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    startIcon={<Email />}
+                    href="mailto:support@hotelbooking.com"
+                  >
+                    Contact Support
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={<Phone />}
+                    href="tel:+1234567890"
+                  >
+                    Call Support
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    onClick={() => navigate('/hotel/profile')}
+                  >
+                    Edit Profile
+                  </Button>
+                </Box>
+              </>
+            ) : (
+              <>
+                <Chip 
+                  label="Pending Verification" 
+                  color="warning" 
+                  size="large" 
+                  sx={{ mb: 3, fontSize: '1rem', py: 2 }}
+                />
+                <Alert severity="info" sx={{ textAlign: 'left', mb: 3 }}>
+                  <Typography variant="h6" gutterBottom>
+                    Your hotel is under review
+                  </Typography>
+                  <Typography variant="body1" sx={{ mb: 2 }}>
+                    Thank you for registering your hotel with our platform. Our admin team is currently reviewing your application.
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Submitted on:</strong> {new Date(hotelProfile?.createdAt).toLocaleDateString()}
+                  </Typography>
+                </Alert>
+                
+                <Typography variant="body1" sx={{ mb: 3 }}>
+                  You will receive an email notification once the verification is complete. 
+                  This process typically takes 1-2 business days.
+                </Typography>
+                
+                <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
+                  <Button
+                    variant="outlined"
+                    startIcon={<Refresh />}
+                    onClick={loadHotelProfile}
+                  >
+                    Check Status
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    onClick={() => navigate('/hotel/profile')}
+                  >
+                    View Profile
+                  </Button>
+                </Box>
+              </>
+            )}
+          </Box>
+        </Paper>
+      </Container>
+    );
+  }
+
+  // Show approved hotel dashboard (simplified version without mock data)
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+        <Avatar sx={{ bgcolor: 'success.main', mr: 2 }}>
+          <CheckCircle />
+        </Avatar>
         <Box>
           <Typography variant="h4" gutterBottom>
-            Hotel Dashboard
+            Welcome, {hotelProfile?.name}!
           </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Welcome back, {user?.firstName}! Here's what's happening at your hotel today.
-          </Typography>
+          <Chip label="Verified Hotel" color="success" icon={<CheckCircle />} />
         </Box>
-        <Button variant="contained" onClick={() => navigate('/hotel/bookings')}>
-          Manage Bookings
-        </Button>
       </Box>
 
-      {/* Quick Stats */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={2}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Box>
-                  <Typography variant="h4" color="primary">
-                    {dashboardData.stats.totalRooms}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Total Rooms
-                  </Typography>
-                </Box>
-                <Avatar sx={{ bgcolor: 'primary.main' }}>
-                  <Hotel />
-                </Avatar>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        
-        <Grid item xs={12} sm={6} md={2}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Box>
-                  <Typography variant="h4" color="success.main">
-                    {occupancyRate}%
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Occupancy Rate
-                  </Typography>
-                </Box>
-                <Avatar sx={{ bgcolor: 'success.main' }}>
-                  <TrendingUp />
-                </Avatar>
-              </Box>
-              <LinearProgress 
-                variant="determinate" 
-                value={parseFloat(occupancyRate)} 
-                sx={{ mt: 1 }}
-                color="success"
-              />
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={2}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Box>
-                  <Typography variant="h4" color="info.main">
-                    {dashboardData.stats.totalBookings}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Total Bookings
-                  </Typography>
-                </Box>
-                <Avatar sx={{ bgcolor: 'info.main' }}>
-                  <CalendarToday />
-                </Avatar>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={2}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Box>
-                  <Typography variant="h4" color="warning.main">
-                    ₹{dashboardData.stats.revenue.toLocaleString()}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Revenue (MTD)
-                  </Typography>
-                </Box>
-                <Avatar sx={{ bgcolor: 'warning.main' }}>
-                  <AttachMoney />
-                </Avatar>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={2}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Box>
-                  <Typography variant="h4" color="secondary.main">
-                    {dashboardData.stats.averageRating}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Avg Rating
-                  </Typography>
-                </Box>
-                <Avatar sx={{ bgcolor: 'secondary.main' }}>
-                  <Star />
-                </Avatar>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={2}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Box>
-                  <Typography variant="h4" color="error.main">
-                    {dashboardData.stats.pendingCheckIns}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Pending Check-ins
-                  </Typography>
-                </Box>
-                <Avatar sx={{ bgcolor: 'error.main' }}>
-                  <Notifications />
-                </Avatar>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+      <Alert severity="success" sx={{ mb: 3 }}>
+        🎉 Congratulations! Your hotel has been verified and is now live on our platform.
+        Customers can now discover and book your rooms.
+      </Alert>
 
       <Grid container spacing={3}>
-        {/* Revenue Chart */}
-        <Grid item xs={12} md={8}>
-          <Paper elevation={2} sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Revenue Overview
-            </Typography>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={dashboardData.revenueData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="revenue" fill="#1976d2" />
-              </BarChart>
-            </ResponsiveContainer>
-          </Paper>
-        </Grid>
-
-        {/* Occupancy Trend */}
-        <Grid item xs={12} md={4}>
-          <Paper elevation={2} sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Weekly Occupancy
-            </Typography>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={dashboardData.occupancyData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip />
-                <Line type="monotone" dataKey="occupied" stroke="#4caf50" strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
-          </Paper>
-        </Grid>
-
-        {/* Recent Bookings */}
-        <Grid item xs={12} md={8}>
-          <Paper elevation={2} sx={{ p: 3 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="h6">
-                Recent Bookings
+        <Grid item xs={12} md={6}>
+          <Card elevation={3}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Hotel Information
               </Typography>
-              <Button size="small" onClick={() => navigate('/hotel/bookings')}>
-                View All
-              </Button>
-            </Box>
-            <List>
-              {dashboardData.recentBookings.map((booking, index) => (
-                <React.Fragment key={booking.id}>
-                  <ListItem
-                    sx={{ px: 0 }}
-                    secondaryAction={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="body2" fontWeight="bold">
-                          ₹{booking.amount}
-                        </Typography>
-                        <IconButton edge="end" size="small">
-                          <MoreVert />
-                        </IconButton>
-                      </Box>
-                    }
-                  >
-                    <ListItemIcon>
-                      <Avatar sx={{ width: 40, height: 40 }}>
-                        {booking.customerName.split(' ').map(n => n[0]).join('')}
-                      </Avatar>
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Typography variant="body1">
-                            {booking.customerName}
-                          </Typography>
-                          <Chip
-                            size="small"
-                            label={booking.status}
-                            color={getStatusColor(booking.status)}
-                            icon={getStatusIcon(booking.status)}
-                          />
-                        </Box>
-                      }
-                      secondary={
-                        <Typography variant="body2" color="text.secondary">
-                          Room {booking.roomNumber} • {booking.roomType} • {booking.guests} guests
-                          <br />
-                          {new Date(booking.checkIn).toLocaleDateString()} - {new Date(booking.checkOut).toLocaleDateString()}
-                        </Typography>
-                      }
-                    />
-                  </ListItem>
-                  {index < dashboardData.recentBookings.length - 1 && <Divider />}
-                </React.Fragment>
-              ))}
-            </List>
-          </Paper>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                <strong>Name:</strong> {hotelProfile?.name}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                <strong>Location:</strong> {hotelProfile?.address?.city}, {hotelProfile?.address?.state}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                <strong>Type:</strong> {hotelProfile?.type || 'Hotel'}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                <strong>Verified on:</strong> {new Date(verificationStatus?.verifiedAt).toLocaleDateString()}
+              </Typography>
+            </CardContent>
+          </Card>
         </Grid>
 
-        {/* Rating Distribution */}
-        <Grid item xs={12} md={4}>
-          <Paper elevation={2} sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Rating Distribution
-            </Typography>
-            <ResponsiveContainer width="100%" height={250}>
-              <PieChart>
-                <Pie
-                  data={dashboardData.ratingDistribution}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  dataKey="count"
-                  label={({ rating, count }) => `${rating}: ${count}`}
+        <Grid item xs={12} md={6}>
+          <Card elevation={3}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Quick Actions
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <Button
+                  variant="contained"
+                  fullWidth
+                  onClick={() => navigate('/hotel/rooms')}
                 >
-                  {dashboardData.ratingDistribution.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </Paper>
+                  Manage Rooms
+                </Button>
+                <Button
+                  variant="outlined"
+                  fullWidth
+                  onClick={() => navigate('/hotel/bookings')}
+                >
+                  View Bookings
+                </Button>
+                <Button
+                  variant="outlined"
+                  fullWidth
+                  onClick={() => navigate('/hotel/profile')}
+                >
+                  Update Profile
+                </Button>
+              </Box>
+            </CardContent>
+          </Card>
         </Grid>
       </Grid>
-
-      {/* Quick Actions */}
-      <Paper elevation={2} sx={{ p: 3, mt: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          Quick Actions
-        </Typography>
-        <Grid container spacing={2}>
-          <Grid item>
-            <Button variant="outlined" startIcon={<Edit />} onClick={() => navigate('/hotel/rooms')}>
-              Manage Rooms
-            </Button>
-          </Grid>
-          <Grid item>
-            <Button variant="outlined" startIcon={<Visibility />} onClick={() => navigate('/hotel/reviews')}>
-              View Reviews
-            </Button>
-          </Grid>
-          <Grid item>
-            <Button variant="outlined" startIcon={<People />} onClick={() => navigate('/hotel/bookings')}>
-              Customer Management
-            </Button>
-          </Grid>
-          <Grid item>
-            <Button variant="outlined" startIcon={<Star />} onClick={() => navigate('/hotel/profile')}>
-              Update Profile
-            </Button>
-          </Grid>
-        </Grid>
-      </Paper>
     </Container>
   );
 };

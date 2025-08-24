@@ -10,7 +10,9 @@ import {
   LinearProgress,
   Avatar,
   Chip,
-  Alert
+  Alert,
+  Button,
+  CardActions
 } from '@mui/material';
 import {
   People,
@@ -20,8 +22,11 @@ import {
   VerifiedUser,
   PendingActions,
   ReportProblem,
-  Assessment
+  Assessment,
+  CheckCircle,
+  ArrowForward
 } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
 const StatCard = ({ title, value, icon, color, trend }) => (
@@ -65,6 +70,8 @@ const Dashboard = () => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchDashboardStats();
@@ -140,12 +147,43 @@ const Dashboard = () => {
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            title="Pending Verification"
-            value={stats.pendingVerifications}
-            icon={<PendingActions />}
-            color="warning"
-          />
+          <Card 
+            elevation={3} 
+            sx={{ 
+              height: '100%', 
+              cursor: stats.pendingVerifications > 0 ? 'pointer' : 'default',
+              transition: 'transform 0.2s, elevation 0.2s',
+              '&:hover': stats.pendingVerifications > 0 ? {
+                transform: 'translateY(-2px)',
+                elevation: 6
+              } : {}
+            }}
+            onClick={() => stats.pendingVerifications > 0 && navigate('/admin/hotels')}
+          >
+            <CardContent>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <Box>
+                  <Typography variant="h4" color="warning.main" gutterBottom>
+                    {stats.pendingVerifications}
+                  </Typography>
+                  <Typography variant="subtitle1" color="text.secondary">
+                    Pending Verification
+                  </Typography>
+                  {stats.pendingVerifications > 0 && (
+                    <Chip 
+                      label="Action Required" 
+                      size="small" 
+                      color="warning" 
+                      sx={{ mt: 1 }} 
+                    />
+                  )}
+                </Box>
+                <Avatar sx={{ bgcolor: 'warning.light', color: 'warning.main' }}>
+                  <PendingActions />
+                </Avatar>
+              </Box>
+            </CardContent>
+          </Card>
         </Grid>
 
         {/* Booking Statistics */}
@@ -247,9 +285,32 @@ const Dashboard = () => {
             </Typography>
             <Box sx={{ mt: 2 }}>
               {stats.pendingVerifications > 0 && (
-                <Alert severity="warning" sx={{ mb: 2 }}>
-                  {stats.pendingVerifications} hotels awaiting verification
-                </Alert>
+                <Card elevation={1} sx={{ mb: 2, bgcolor: 'warning.50' }}>
+                  <CardContent sx={{ pb: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Box>
+                        <Typography variant="body2" color="warning.main" fontWeight="bold">
+                          {stats.pendingVerifications} hotels awaiting verification
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          New hotels need admin approval to start operating
+                        </Typography>
+                      </Box>
+                      <PendingActions color="warning" />
+                    </Box>
+                  </CardContent>
+                  <CardActions sx={{ pt: 0 }}>
+                    <Button 
+                      size="small" 
+                      variant="contained" 
+                      color="warning"
+                      endIcon={<ArrowForward />}
+                      onClick={() => navigate('/admin/hotels')}
+                    >
+                      Review Hotels
+                    </Button>
+                  </CardActions>
+                </Card>
               )}
               
               {stats.pendingBookings > 0 && (

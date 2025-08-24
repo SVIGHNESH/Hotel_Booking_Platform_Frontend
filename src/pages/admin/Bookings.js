@@ -58,76 +58,37 @@ const Bookings = () => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [detailDialog, setDetailDialog] = useState({ open: false, booking: null });
 
-  // Mock data for demonstration
-  const mockBookings = [
-    {
-      _id: 'b1',
-      bookingReference: 'HB20250823001',
-      customerId: { firstName: 'John', lastName: 'Doe', email: 'john@example.com' },
-      hotelId: { name: 'Grand Hotel', _id: 'h1' },
-      roomId: { roomNumber: '101', type: 'Deluxe', _id: 'r1' },
-      checkIn: '2025-08-25',
-      checkOut: '2025-08-28',
-      guests: { adults: 2, children: 1 },
-      amount: 15000,
-      currency: 'INR',
-      status: 'confirmed',
-      paymentStatus: 'paid',
-      createdAt: new Date().toISOString()
-    },
-    {
-      _id: 'b2',
-      bookingReference: 'HB20250823002',
-      customerId: { firstName: 'Jane', lastName: 'Smith', email: 'jane@example.com' },
-      hotelId: { name: 'Beach Resort', _id: 'h2' },
-      roomId: { roomNumber: '205', type: 'Suite', _id: 'r2' },
-      checkIn: '2025-08-30',
-      checkOut: '2025-09-02',
-      guests: { adults: 2, children: 0 },
-      amount: 25000,
-      currency: 'INR',
-      status: 'pending',
-      paymentStatus: 'pending',
-      createdAt: new Date(Date.now() - 86400000).toISOString()
-    },
-    {
-      _id: 'b3',
-      bookingReference: 'HB20250823003',
-      customerId: { firstName: 'Mike', lastName: 'Johnson', email: 'mike@example.com' },
-      hotelId: { name: 'City Inn', _id: 'h3' },
-      roomId: { roomNumber: '302', type: 'Standard', _id: 'r3' },
-      checkIn: '2025-08-26',
-      checkOut: '2025-08-27',
-      guests: { adults: 1, children: 0 },
-      amount: 8000,
-      currency: 'INR',
-      status: 'cancelled',
-      paymentStatus: 'refunded',
-      createdAt: new Date(Date.now() - 172800000).toISOString()
-    },
-    {
-      _id: 'b4',
-      bookingReference: 'HB20250823004',
-      customerId: { firstName: 'Sarah', lastName: 'Wilson', email: 'sarah@example.com' },
-      hotelId: { name: 'Mountain Lodge', _id: 'h4' },
-      roomId: { roomNumber: '401', type: 'Family', _id: 'r4' },
-      checkIn: '2025-09-01',
-      checkOut: '2025-09-05',
-      guests: { adults: 2, children: 2 },
-      amount: 32000,
-      currency: 'INR',
-      status: 'confirmed',
-      paymentStatus: 'paid',
-      createdAt: new Date(Date.now() - 259200000).toISOString()
-    }
-  ];
-
   useEffect(() => {
-    // Using mock data since comprehensive booking endpoints might not be available
-    setBookings(mockBookings);
-    setTotalBookings(mockBookings.length);
-    setLoading(false);
+    fetchBookings();
   }, []);
+
+  const fetchBookings = async () => {
+    try {
+      setLoading(true);
+      
+      // API call to fetch all bookings
+      const response = await fetch('/api/admin/bookings', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch bookings');
+      }
+      
+      const data = await response.json();
+      setBookings(data.bookings || []);
+      setTotalBookings(data.total || 0);
+    } catch (error) {
+      console.error('Failed to fetch bookings:', error);
+      setBookings([]);
+      setTotalBookings(0);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getStatusColor = (status) => {
     switch (status) {

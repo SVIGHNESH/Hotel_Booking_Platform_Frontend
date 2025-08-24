@@ -47,6 +47,7 @@ import {
   Room
 } from '@mui/icons-material';
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
+import axios from 'axios';
 
 const HotelDetails = () => {
   const { id } = useParams();
@@ -61,99 +62,6 @@ const HotelDetails = () => {
   const [imageDialogOpen, setImageDialogOpen] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
 
-  // Mock hotel data
-  const mockHotel = {
-    id: parseInt(id),
-    name: 'Grand Plaza Hotel',
-    description: 'Experience luxury and comfort at the Grand Plaza Hotel, located in the heart of downtown. Our elegant rooms and suites offer stunning city views, modern amenities, and personalized service that exceeds expectations.',
-    location: 'Downtown',
-    fullAddress: '123 Main Street, Downtown, City 12345',
-    rating: 4.5,
-    reviewCount: 234,
-    starRating: 5,
-    phone: '+1 (555) 123-4567',
-    email: 'info@grandplaza.com',
-    website: 'www.grandplaza.com',
-    checkIn: '3:00 PM',
-    checkOut: '11:00 AM',
-    images: [
-      'https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1590490360182-c33d57733427?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1571896349842-33c89424de2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
-    ],
-    amenities: [
-      { id: 'wifi', name: 'Free WiFi', icon: <Wifi />, available: true },
-      { id: 'pool', name: 'Swimming Pool', icon: <Pool />, available: true },
-      { id: 'restaurant', name: 'Restaurant', icon: <Restaurant />, available: true },
-      { id: 'gym', name: 'Fitness Center', icon: <FitnessCenter />, available: true },
-      { id: 'parking', name: 'Free Parking', icon: <LocalParking />, available: true },
-      { id: 'business', name: 'Business Center', icon: <Business />, available: true }
-    ],
-    policies: [
-      'Check-in: 3:00 PM - 12:00 AM',
-      'Check-out: 12:00 PM',
-      'Pets allowed (additional fees may apply)',
-      'Non-smoking rooms available',
-      'Free cancellation up to 24 hours before check-in'
-    ]
-  };
-
-  const mockRooms = [
-    {
-      id: 1,
-      name: 'Standard King Room',
-      description: 'Comfortable room with king-size bed, city view, and modern amenities.',
-      price: 150,
-      originalPrice: 180,
-      maxGuests: 2,
-      bedType: 'King',
-      size: '25 sqm',
-      amenities: ['Free WiFi', 'Air Conditioning', 'Flat-screen TV', 'Mini Bar'],
-      images: ['https://images.unsplash.com/photo-1631049307264-da0ec9d70304?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80'],
-      available: true,
-      availableRooms: 3
-    },
-    {
-      id: 2,
-      name: 'Deluxe Suite',
-      description: 'Spacious suite with separate living area, premium amenities, and panoramic views.',
-      price: 280,
-      originalPrice: 320,
-      maxGuests: 4,
-      bedType: 'King + Sofa Bed',
-      size: '45 sqm',
-      amenities: ['Free WiFi', 'Air Conditioning', 'Flat-screen TV', 'Mini Bar', 'Balcony', 'Room Service'],
-      images: ['https://images.unsplash.com/photo-1590490360182-c33d57733427?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80'],
-      available: true,
-      availableRooms: 2
-    }
-  ];
-
-  const mockReviews = [
-    {
-      id: 1,
-      userName: 'John Smith',
-      userAvatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&q=80',
-      rating: 5,
-      date: '2025-08-15',
-      title: 'Excellent stay!',
-      comment: 'Amazing hotel with great service. The staff was very friendly and the room was spotless. Highly recommended!',
-      helpful: 12
-    },
-    {
-      id: 2,
-      userName: 'Sarah Johnson',
-      userAvatar: 'https://images.unsplash.com/photo-1494790108755-2616b66178ee?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&q=80',
-      rating: 4,
-      date: '2025-08-10',
-      title: 'Great location',
-      comment: 'Perfect location in downtown. Easy access to restaurants and attractions. Room was comfortable and clean.',
-      helpful: 8
-    }
-  ];
-
   useEffect(() => {
     loadHotelDetails();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -162,12 +70,22 @@ const HotelDetails = () => {
   const loadHotelDetails = async () => {
     setLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const token = localStorage.getItem('token');
+      const headers = { Authorization: `Bearer ${token}` };
+
+      // Fetch hotel details
+      const hotelResponse = await axios.get(`/api/customer/hotels/${id}`, { headers });
       
-      setHotel(mockHotel);
-      setRooms(mockRooms);
-      setReviews(mockReviews);
+      if (hotelResponse.data.success) {
+        const hotelData = hotelResponse.data.data;
+        setHotel(hotelData);
+        setRooms(hotelData.rooms || []);
+        
+        // For now, set empty reviews array - reviews can be enhanced later
+        setReviews([]);
+      } else {
+        console.error('Failed to load hotel details');
+      }
     } catch (error) {
       console.error('Failed to load hotel details:', error);
     } finally {

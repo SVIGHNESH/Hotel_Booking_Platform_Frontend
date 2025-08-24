@@ -84,93 +84,25 @@ const Bookings = () => {
   const fetchBookings = async () => {
     try {
       setLoading(true);
-      // Mock bookings data
-      const mockBookings = [
-        {
-          _id: '1',
-          bookingId: 'HTL001',
-          customerName: 'John Doe',
-          customerEmail: 'john.doe@email.com',
-          customerPhone: '+91 98765 43210',
-          roomNumber: '101',
-          roomType: 'Deluxe',
-          checkInDate: '2024-01-20',
-          checkOutDate: '2024-01-23',
-          nights: 3,
-          guests: { adults: 2, children: 1 },
-          totalAmount: 15000,
-          amountPaid: 15000,
-          paymentStatus: 'paid',
-          status: 'confirmed',
-          createdAt: '2024-01-15T10:30:00Z',
-          specialRequests: 'Late check-in requested',
-          bookingSource: 'website'
-        },
-        {
-          _id: '2',
-          bookingId: 'HTL002',
-          customerName: 'Jane Smith',
-          customerEmail: 'jane.smith@email.com',
-          customerPhone: '+91 98765 43211',
-          roomNumber: '201',
-          roomType: 'Suite',
-          checkInDate: '2024-01-25',
-          checkOutDate: '2024-01-28',
-          nights: 3,
-          guests: { adults: 2, children: 0 },
-          totalAmount: 36000,
-          amountPaid: 18000,
-          paymentStatus: 'partial',
-          status: 'pending',
-          createdAt: '2024-01-18T14:20:00Z',
-          specialRequests: 'Vegetarian meals preferred',
-          bookingSource: 'phone'
-        },
-        {
-          _id: '3',
-          bookingId: 'HTL003',
-          customerName: 'Mike Johnson',
-          customerEmail: 'mike.johnson@email.com',
-          customerPhone: '+91 98765 43212',
-          roomNumber: '102',
-          roomType: 'Standard',
-          checkInDate: '2024-01-15',
-          checkOutDate: '2024-01-18',
-          nights: 3,
-          guests: { adults: 1, children: 0 },
-          totalAmount: 9000,
-          amountPaid: 9000,
-          paymentStatus: 'paid',
-          status: 'checked-out',
-          createdAt: '2024-01-10T09:15:00Z',
-          specialRequests: 'None',
-          bookingSource: 'website'
-        },
-        {
-          _id: '4',
-          bookingId: 'HTL004',
-          customerName: 'Sarah Williams',
-          customerEmail: 'sarah.williams@email.com',
-          customerPhone: '+91 98765 43213',
-          roomNumber: '202',
-          roomType: 'Deluxe',
-          checkInDate: '2024-01-19',
-          checkOutDate: '2024-01-21',
-          nights: 2,
-          guests: { adults: 2, children: 0 },
-          totalAmount: 13000,
-          amountPaid: 13000,
-          paymentStatus: 'paid',
-          status: 'checked-in',
-          createdAt: '2024-01-16T11:45:00Z',
-          specialRequests: 'High floor room preferred',
-          bookingSource: 'app'
+      
+      // API call to fetch hotel bookings
+      const response = await fetch('/api/hotel/bookings', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
         }
-      ];
-      setBookings(mockBookings);
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch bookings');
+      }
+      
+      const data = await response.json();
+      setBookings(data.bookings || []);
     } catch (error) {
       console.error('Fetch bookings error:', error);
       setError('Failed to fetch bookings');
+      setBookings([]);
     } finally {
       setLoading(false);
     }

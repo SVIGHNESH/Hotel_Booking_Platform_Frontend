@@ -16,23 +16,30 @@ import ResetPassword from './pages/auth/ResetPassword';
 import CustomerDashboard from './pages/customer/Dashboard';
 import HotelSearch from './pages/customer/HotelSearch';
 import HotelDetails from './pages/customer/HotelDetails';
+import RoomBooking from './pages/customer/RoomBooking';
 import BookingConfirmation from './pages/customer/BookingConfirmation';
 import MyBookings from './pages/customer/MyBookings';
+import BookingHistory from './pages/customer/BookingHistory';
 import CustomerProfile from './pages/customer/Profile';
 
 // Hotel Pages
 import HotelDashboard from './pages/hotel/Dashboard';
 import HotelProfile from './pages/hotel/Profile';
 import RoomManagement from './pages/hotel/RoomManagement';
+import ManageRooms from './pages/hotel/ManageRooms';
+import BookingManagement from './pages/hotel/BookingManagement';
 import HotelBookings from './pages/hotel/Bookings';
 import HotelReviews from './pages/hotel/Reviews';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/Dashboard';
 import UserManagement from './pages/admin/UserManagement';
+import HotelManagement from './pages/admin/HotelManagement';
 import HotelVerification from './pages/admin/HotelVerification';
 import AdminBookings from './pages/admin/Bookings';
+import Analytics from './pages/admin/Analytics';
 import GrievanceManagement from './pages/admin/GrievanceManagement';
+import SystemSettings from './pages/admin/SystemSettings';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
@@ -81,6 +88,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/search" element={<HotelSearch />} />
           <Route path="/hotels/:id" element={<HotelDetails />} />
+          <Route path="/hotels/:id/book" element={<RoomBooking />} />
           
           {/* Auth Routes */}
           <Route
@@ -129,6 +137,14 @@ function App() {
             }
           />
           <Route
+            path="/customer/booking-history"
+            element={
+              <ProtectedRoute allowedRoles={['customer']}>
+                <BookingHistory />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/customer/booking-confirmation/:id"
             element={
               <ProtectedRoute allowedRoles={['customer']}>
@@ -159,6 +175,22 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['hotel']}>
                 <RoomManagement />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/hotel/manage-rooms"
+            element={
+              <ProtectedRoute allowedRoles={['hotel']}>
+                <ManageRooms />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/hotel/booking-management"
+            element={
+              <ProtectedRoute allowedRoles={['hotel']}>
+                <BookingManagement />
               </ProtectedRoute>
             }
           />
@@ -205,6 +237,14 @@ function App() {
             }
           />
           <Route
+            path="/admin/hotel-management"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <HotelManagement />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/admin/bookings"
             element={
               <ProtectedRoute allowedRoles={['admin']}>
@@ -213,10 +253,26 @@ function App() {
             }
           />
           <Route
+            path="/admin/analytics"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <Analytics />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/admin/grievances"
             element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <GrievanceManagement />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/settings"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <SystemSettings />
               </ProtectedRoute>
             }
           />

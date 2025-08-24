@@ -22,7 +22,10 @@ import {
   Alert,
   CircularProgress,
   Menu,
-  MenuItem
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Select
 } from '@mui/material';
 import {
   CalendarToday,
@@ -30,25 +33,21 @@ import {
   People,
   MoreVert,
   Cancel,
-  Edit,
   Receipt,
   Star,
-  Message,
   Phone,
-  Email,
   CheckCircle,
-  AccessTime,
-  Warning
+  AccessTime
 } from '@mui/icons-material';
-import { useAuth } from '../../contexts/AuthContext';
 
 const MyBookings = () => {
-  const { user } = useAuth();
   const [currentTab, setCurrentTab] = useState(0);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [cancelDialog, setCancelDialog] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [refundAmount, setRefundAmount] = useState(0);
   const [reviewDialog, setReviewDialog] = useState(false);
   const [reviewData, setReviewData] = useState({ rating: 5, comment: '' });
   const [anchorEl, setAnchorEl] = useState(null);
@@ -62,95 +61,23 @@ const MyBookings = () => {
   const loadBookings = async () => {
     setLoading(true);
     try {
-      // Mock API call - replace with actual API
-      const mockBookings = [
-        {
-          id: 'BK001',
-          hotel: {
-            id: 'H001',
-            name: 'Grand Plaza Hotel',
-            location: 'Downtown Manhattan, New York',
-            image: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80',
-            rating: 4.5,
-            phone: '+1 (555) 123-4567',
-            email: 'info@grandplaza.com'
-          },
-          room: {
-            name: 'Deluxe King Room',
-            type: 'King'
-          },
-          checkIn: '2024-12-25',
-          checkOut: '2024-12-28',
-          guests: 2,
-          rooms: 1,
-          totalCost: 450,
-          status: 'confirmed',
-          bookingDate: '2024-12-20',
-          specialRequests: 'Late check-in requested',
-          paymentStatus: 'paid',
-          canCancel: true,
-          canReview: false
-        },
-        {
-          id: 'BK002',
-          hotel: {
-            id: 'H002',
-            name: 'Seaside Resort',
-            location: 'Miami Beach, Florida',
-            image: 'https://images.unsplash.com/photo-1571896349842-33c89424de2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80',
-            rating: 4.8,
-            phone: '+1 (555) 987-6543',
-            email: 'reservations@seasideresort.com'
-          },
-          room: {
-            name: 'Ocean View Suite',
-            type: 'Suite'
-          },
-          checkIn: '2024-11-15',
-          checkOut: '2024-11-18',
-          guests: 2,
-          rooms: 1,
-          totalCost: 680,
-          status: 'completed',
-          bookingDate: '2024-11-10',
-          specialRequests: '',
-          paymentStatus: 'paid',
-          canCancel: false,
-          canReview: true
-        },
-        {
-          id: 'BK003',
-          hotel: {
-            id: 'H003',
-            name: 'Mountain Lodge',
-            location: 'Aspen, Colorado',
-            image: 'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80',
-            rating: 4.2,
-            phone: '+1 (555) 456-7890',
-            email: 'info@mountainlodge.com'
-          },
-          room: {
-            name: 'Standard Double Room',
-            type: 'Double'
-          },
-          checkIn: '2024-10-05',
-          checkOut: '2024-10-08',
-          guests: 4,
-          rooms: 2,
-          totalCost: 520,
-          status: 'cancelled',
-          bookingDate: '2024-09-30',
-          specialRequests: 'Ground floor room preferred',
-          paymentStatus: 'refunded',
-          canCancel: false,
-          canReview: false,
-          cancellationReason: 'Change of plans'
+      // TODO: Replace with actual API call
+      const response = await fetch('/api/bookings', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
         }
-      ];
+      });
       
-      setBookings(mockBookings);
+      if (!response.ok) {
+        throw new Error('Failed to fetch bookings');
+      }
+      
+      const data = await response.json();
+      setBookings(data.bookings || []);
     } catch (error) {
       console.error('Failed to load bookings:', error);
+      setBookings([]);
     } finally {
       setLoading(false);
     }
@@ -212,6 +139,23 @@ const MyBookings = () => {
   };
 
   const handleCancelBooking = () => {
+    // Calculate refund amount based on cancellation policy
+    const checkInDate = new Date(selectedBooking.checkIn);
+    const today = new Date();
+    const daysUntilCheckIn = Math.ceil((checkInDate - today) / (1000 * 60 * 60 * 24));
+    
+    let refundPercentage = 0;
+    if (daysUntilCheckIn >= 7) {
+      refundPercentage = 100; // Full refund
+    } else if (daysUntilCheckIn >= 3) {
+      refundPercentage = 50; // 50% refund
+    } else if (daysUntilCheckIn >= 1) {
+      refundPercentage = 25; // 25% refund
+    } else {
+      refundPercentage = 0; // No refund
+    }
+    
+    setRefundAmount(Math.round((selectedBooking.totalCost * refundPercentage) / 100));
     setCancelDialog(true);
     handleMenuClose();
   };
@@ -223,27 +167,74 @@ const MyBookings = () => {
 
   const confirmCancelBooking = async () => {
     try {
-      // Mock API call for cancellation
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      setLoading(true);
+      
+      // API call for cancellation
+      const response = await fetch(`/api/bookings/${selectedBooking.id}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          reason: cancelReason,
+          refundAmount: refundAmount
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to cancel booking');
+      }
+      
+      const result = await response.json();
       
       // Update booking status
       setBookings(prev => prev.map(booking => 
         booking.id === selectedBooking.id 
-          ? { ...booking, status: 'cancelled', canCancel: false }
+          ? { 
+              ...booking, 
+              status: 'cancelled', 
+              canCancel: false,
+              cancellationReason: cancelReason,
+              refundAmount: refundAmount,
+              paymentStatus: refundAmount > 0 ? 'refunded' : 'cancelled'
+            }
           : booking
       ));
       
       setCancelDialog(false);
+      setCancelReason('');
       setSelectedBooking(null);
+      
+      // Show success message
+      alert(`Booking cancelled successfully! ${refundAmount > 0 ? `Refund of ₹${refundAmount} will be processed within 3-5 business days.` : 'No refund applicable as per cancellation policy.'}`);
+      
     } catch (error) {
       console.error('Failed to cancel booking:', error);
+      alert('Failed to cancel booking. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
   const submitReview = async () => {
     try {
-      // Mock API call for review submission
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // API call for review submission
+      const response = await fetch(`/api/bookings/${selectedBooking.id}/review`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          rating: rating,
+          comment: reviewComment
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to submit review');
+      }
       
       // Update booking to mark as reviewed
       setBookings(prev => prev.map(booking => 
@@ -425,33 +416,158 @@ const MyBookings = () => {
       </Menu>
 
       {/* Cancel Booking Dialog */}
-      <Dialog open={cancelDialog} onClose={() => setCancelDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Cancel Booking</DialogTitle>
+      <Dialog open={cancelDialog} onClose={() => setCancelDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ pb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Cancel color="error" />
+            Cancel Booking
+          </Box>
+        </DialogTitle>
         <DialogContent>
-          <Alert severity="warning" sx={{ mb: 2 }}>
-            Are you sure you want to cancel this booking? This action cannot be undone.
+          <Alert severity="warning" sx={{ mb: 3 }}>
+            <Typography variant="body2">
+              <strong>Important:</strong> Please review the cancellation policy and refund details below before proceeding.
+            </Typography>
           </Alert>
+          
           {selectedBooking && (
-            <Box>
-              <Typography variant="body1" gutterBottom>
-                <strong>Hotel:</strong> {selectedBooking.hotel.name}
-              </Typography>
-              <Typography variant="body1" gutterBottom>
-                <strong>Booking ID:</strong> {selectedBooking.id}
-              </Typography>
-              <Typography variant="body1" gutterBottom>
-                <strong>Dates:</strong> {new Date(selectedBooking.checkIn).toLocaleDateString()} - {new Date(selectedBooking.checkOut).toLocaleDateString()}
-              </Typography>
-              <Typography variant="body1" gutterBottom>
-                <strong>Total Amount:</strong> ₹{selectedBooking.totalCost}
-              </Typography>
-            </Box>
+            <Grid container spacing={3}>
+              {/* Booking Details */}
+              <Grid item xs={12} md={6}>
+                <Typography variant="h6" gutterBottom color="primary">
+                  Booking Details
+                </Typography>
+                <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                  <Typography variant="body2" gutterBottom>
+                    <strong>Hotel:</strong> {selectedBooking.hotel.name}
+                  </Typography>
+                  <Typography variant="body2" gutterBottom>
+                    <strong>Booking ID:</strong> {selectedBooking.id}
+                  </Typography>
+                  <Typography variant="body2" gutterBottom>
+                    <strong>Room:</strong> {selectedBooking.room.name}
+                  </Typography>
+                  <Typography variant="body2" gutterBottom>
+                    <strong>Check-in:</strong> {new Date(selectedBooking.checkIn).toLocaleDateString('en-IN', { 
+                      weekday: 'long', 
+                      year: 'numeric', 
+                      month: 'long', 
+                      day: 'numeric' 
+                    })}
+                  </Typography>
+                  <Typography variant="body2" gutterBottom>
+                    <strong>Check-out:</strong> {new Date(selectedBooking.checkOut).toLocaleDateString('en-IN', { 
+                      weekday: 'long', 
+                      year: 'numeric', 
+                      month: 'long', 
+                      day: 'numeric' 
+                    })}
+                  </Typography>
+                  <Typography variant="body2" gutterBottom>
+                    <strong>Total Paid:</strong> ₹{selectedBooking.totalCost.toLocaleString()}
+                  </Typography>
+                </Box>
+              </Grid>
+
+              {/* Refund Information */}
+              <Grid item xs={12} md={6}>
+                <Typography variant="h6" gutterBottom color="primary">
+                  Refund Information
+                </Typography>
+                <Box sx={{ p: 2, bgcolor: refundAmount > 0 ? 'success.light' : 'error.light', borderRadius: 1 }}>
+                  <Typography variant="body2" gutterBottom>
+                    <strong>Refund Amount:</strong> ₹{refundAmount.toLocaleString()}
+                  </Typography>
+                  <Typography variant="body2" gutterBottom>
+                    <strong>Refund Percentage:</strong> {Math.round((refundAmount / selectedBooking.totalCost) * 100)}%
+                  </Typography>
+                  {refundAmount > 0 && (
+                    <Typography variant="caption" color="success.dark">
+                      Refund will be processed within 3-5 business days to your original payment method.
+                    </Typography>
+                  )}
+                  {refundAmount === 0 && (
+                    <Typography variant="caption" color="error.dark">
+                      No refund applicable as per our cancellation policy for bookings cancelled within 24 hours.
+                    </Typography>
+                  )}
+                </Box>
+
+                {/* Cancellation Policy */}
+                <Box sx={{ mt: 2, p: 2, bgcolor: 'info.light', borderRadius: 1 }}>
+                  <Typography variant="body2" fontWeight="bold" gutterBottom>
+                    Cancellation Policy:
+                  </Typography>
+                  <Typography variant="caption" display="block">
+                    • 7+ days: 100% refund
+                  </Typography>
+                  <Typography variant="caption" display="block">
+                    • 3-6 days: 50% refund
+                  </Typography>
+                  <Typography variant="caption" display="block">
+                    • 1-2 days: 25% refund
+                  </Typography>
+                  <Typography variant="caption" display="block">
+                    • Same day: No refund
+                  </Typography>
+                </Box>
+              </Grid>
+
+              {/* Cancellation Reason */}
+              <Grid item xs={12}>
+                <Typography variant="h6" gutterBottom color="primary">
+                  Reason for Cancellation
+                </Typography>
+                <FormControl fullWidth>
+                  <InputLabel>Select Reason</InputLabel>
+                  <Select
+                    value={cancelReason}
+                    label="Select Reason"
+                    onChange={(e) => setCancelReason(e.target.value)}
+                  >
+                    <MenuItem value="change_of_plans">Change of Plans</MenuItem>
+                    <MenuItem value="emergency">Emergency</MenuItem>
+                    <MenuItem value="travel_restrictions">Travel Restrictions</MenuItem>
+                    <MenuItem value="health_issues">Health Issues</MenuItem>
+                    <MenuItem value="work_commitments">Work Commitments</MenuItem>
+                    <MenuItem value="weather_conditions">Weather Conditions</MenuItem>
+                    <MenuItem value="financial_constraints">Financial Constraints</MenuItem>
+                    <MenuItem value="other">Other</MenuItem>
+                  </Select>
+                </FormControl>
+                
+                {cancelReason === 'other' && (
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={3}
+                    label="Please specify"
+                    sx={{ mt: 2 }}
+                    placeholder="Please provide additional details..."
+                  />
+                )}
+              </Grid>
+            </Grid>
           )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCancelDialog(false)}>Keep Booking</Button>
-          <Button onClick={confirmCancelBooking} color="error" variant="contained">
-            Cancel Booking
+        <DialogActions sx={{ p: 3, gap: 1 }}>
+          <Button 
+            onClick={() => {
+              setCancelDialog(false);
+              setCancelReason('');
+            }}
+            variant="outlined"
+          >
+            Keep Booking
+          </Button>
+          <Button 
+            onClick={confirmCancelBooking} 
+            color="error" 
+            variant="contained"
+            disabled={!cancelReason || loading}
+            startIcon={loading ? <CircularProgress size={16} /> : <Cancel />}
+          >
+            {loading ? 'Cancelling...' : 'Confirm Cancellation'}
           </Button>
         </DialogActions>
       </Dialog>

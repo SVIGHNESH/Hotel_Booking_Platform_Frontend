@@ -1,10 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Container,
   Grid,
-  Card,
-  CardContent,
-  CardMedia,
   Typography,
   Box,
   Button,
@@ -27,19 +24,15 @@ import {
   DialogActions
 } from '@mui/material';
 import {
-  CalendarToday,
-  People,
   CreditCard,
   CheckCircle,
   LocationOn,
   Star,
-  Wifi,
-  Pool,
-  Restaurant,
   ArrowBack
 } from '@mui/icons-material';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import axios from 'axios';
 
 const RoomBooking = () => {
   const location = useLocation();
@@ -72,50 +65,52 @@ const RoomBooking = () => {
   const [hotelDetails, setHotelDetails] = useState(null);
   const [totalCost, setTotalCost] = useState(0);
   const [confirmationDialog, setConfirmationDialog] = useState(false);
+  const [error, setError] = useState('');
+  const [bookingConfirmation, setBookingConfirmation] = useState(null);
 
   const steps = ['Booking Details', 'Guest Information', 'Payment', 'Confirmation'];
+
+  const loadBookingDetails = useCallback(async (hotelId, roomId) => {
+    setLoading(true);
+    try {
+      // Fetch hotel details
+      const hotelResponse = await axios.get(`/api/customer/hotels/${hotelId}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      if (hotelResponse.data.success) {
+        setHotelDetails(hotelResponse.data.data);
+        
+        // Find the specific room in the hotel data
+        const room = hotelResponse.data.data.rooms?.find(r => r._id === roomId);
+        if (room) {
+          setRoomDetails(room);
+          // Calculate initial cost using room pricing
+          const basePrice = room.pricing?.basePrice || room.price || 0;
+          calculateTotalCost(basePrice, 1, 1);
+        } else {
+          setError('Room not found');
+        }
+      } else {
+        setError('Failed to load hotel details');
+      }
+    } catch (error) {
+      console.error('Failed to load booking details:', error);
+      setError('Failed to load booking details. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   // Get booking data from navigation state
   useEffect(() => {
     if (location.state) {
-      const { hotelId, roomId, hotelName } = location.state;
+      const { hotelId, roomId } = location.state;
       loadBookingDetails(hotelId, roomId);
     }
-  }, [location.state]);
-
-  const loadBookingDetails = async (hotelId, roomId) => {
-    setLoading(true);
-    try {
-      // Mock API call - replace with actual API
-      const mockRoom = {
-        id: roomId,
-        name: 'Deluxe King Room',
-        description: 'Spacious room with king-size bed, city view, and modern amenities.',
-        price: 150,
-        maxGuests: 2,
-        amenities: ['Free WiFi', 'Air Conditioning', 'Flat-screen TV', 'Mini Bar'],
-        images: ['https://images.unsplash.com/photo-1631049307264-da0ec9d70304?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80']
-      };
-      
-      const mockHotel = {
-        id: hotelId,
-        name: 'Grand Plaza Hotel',
-        location: 'Downtown',
-        rating: 4.5,
-        image: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80'
-      };
-      
-      setRoomDetails(mockRoom);
-      setHotelDetails(mockHotel);
-      
-      // Calculate initial cost
-      calculateTotalCost(mockRoom.price, 1, 1);
-    } catch (error) {
-      console.error('Failed to load booking details:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [location.state, loadBookingDetails]);
 
   const calculateTotalCost = (roomPrice, nights, rooms) => {
     const subtotal = roomPrice * nights * rooms;
@@ -189,26 +184,64 @@ const RoomBooking = () => {
   const handleConfirmBooking = async () => {
     setLoading(true);
     try {
-      // Mock API call for booking creation
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      setConfirmationDialog(false);
-      setActiveStep(steps.length - 1);
-      
-      // Navigate to confirmation page after a delay
-      setTimeout(() => {
-        navigate('/customer/booking-confirmation', {
-          state: {
-            bookingId: 'BK' + Date.now(),
-            ...bookingData,
-            hotel: hotelDetails,
-            room: roomDetails,
-            totalCost
+      // Prepare booking data according to backend validation
+      const bookingPayload = {
+        roomId: roomDetails?._id,
+        hotelId: hotelDetails?._id,
+        bookingDetails: {
+          checkIn: bookingData.checkIn,
+          checkOut: bookingData.checkOut,
+          numberOfRooms: 1,
+          guests: {
+            adults: bookingData.guests || 1,
+            children: 0
           }
-        });
-      }, 3000);
+        },
+        guestDetails: {
+          firstName: bookingData.contactInfo?.firstName || user?.firstName || '',
+          lastName: bookingData.contactInfo?.lastName || user?.lastName || '',
+          email: bookingData.contactInfo?.email || user?.email || '',
+          phone: bookingData.contactInfo?.phone || user?.phone || '',
+          address: bookingData.contactInfo?.address || '',
+          specialRequests: bookingData.contactInfo?.specialRequests || ''
+        },
+        paymentMethod: bookingData.paymentInfo?.method || 'card',
+        totalAmount: totalCost
+      };
+
+      const response = await axios.post('/api/customer/bookings', bookingPayload, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      if (response.data.success) {
+        setConfirmationDialog(false);
+        setActiveStep(steps.length - 1);
+        setBookingConfirmation(response.data.data);
+        
+        // Navigate to confirmation page after a delay
+        setTimeout(() => {
+          navigate('/customer/booking-confirmation', {
+            state: {
+              bookingId: response.data.data._id || 'BK' + Date.now(),
+              ...bookingData,
+              hotel: hotelDetails,
+              room: roomDetails,
+              totalCost
+            }
+          });
+        }, 3000);
+      } else {
+        setError(response.data.message || 'Failed to create booking');
+      }
     } catch (error) {
-      console.error('Booking failed:', error);
+      console.error('Failed to create booking:', error);
+      if (error.response?.data?.message) {
+        setError(error.response.data.message);
+      } else {
+        setError('Failed to create booking. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -378,9 +411,19 @@ const RoomBooking = () => {
             <Typography variant="h5" gutterBottom>
               Booking Confirmed!
             </Typography>
-            <Typography variant="body1" color="text.secondary">
+            <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
               Your booking has been successfully confirmed. You will receive a confirmation email shortly.
             </Typography>
+            {bookingConfirmation && (
+              <Box sx={{ mt: 3, p: 2, backgroundColor: 'grey.50', borderRadius: 1 }}>
+                <Typography variant="subtitle2" gutterBottom>
+                  Booking Reference: {bookingConfirmation._id || bookingConfirmation.bookingId}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Status: {bookingConfirmation.status || 'Confirmed'}
+                </Typography>
+              </Box>
+            )}
             {loading && <CircularProgress sx={{ mt: 2 }} />}
           </Box>
         );
@@ -437,6 +480,12 @@ const RoomBooking = () => {
                 </Step>
               ))}
             </Stepper>
+
+            {error && (
+              <Alert severity="error" sx={{ mb: 3 }}>
+                {error}
+              </Alert>
+            )}
 
             {renderStepContent(activeStep)}
 

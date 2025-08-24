@@ -64,79 +64,25 @@ const Reviews = () => {
   const fetchReviews = async () => {
     try {
       setLoading(true);
-      // Mock reviews data
-      const mockReviews = [
-        {
-          _id: '1',
-          customerName: 'John Doe',
-          customerAvatar: '',
-          rating: 5,
-          title: 'Excellent Stay!',
-          comment: 'Had a wonderful experience at this hotel. The staff was very friendly and the room was clean and comfortable. Would definitely recommend to others.',
-          date: '2024-01-18',
-          roomType: 'Deluxe Room',
-          stayDuration: 3,
-          hasReply: true,
-          reply: {
-            text: 'Thank you for your wonderful feedback! We are delighted to hear that you enjoyed your stay with us.',
-            date: '2024-01-19',
-            author: 'Hotel Manager'
-          },
-          helpful: 12,
-          verified: true
-        },
-        {
-          _id: '2',
-          customerName: 'Jane Smith',
-          customerAvatar: '',
-          rating: 4,
-          title: 'Good Value for Money',
-          comment: 'Nice hotel with good amenities. The breakfast was excellent and the location is convenient. Only minor issue was the Wi-Fi speed in the room.',
-          date: '2024-01-15',
-          roomType: 'Standard Room',
-          stayDuration: 2,
-          hasReply: false,
-          helpful: 8,
-          verified: true
-        },
-        {
-          _id: '3',
-          customerName: 'Mike Johnson',
-          customerAvatar: '',
-          rating: 2,
-          title: 'Room Could Be Better',
-          comment: 'The service was okay but the room had some maintenance issues. The air conditioning was not working properly and the bathroom needed attention.',
-          date: '2024-01-12',
-          roomType: 'Economy Room',
-          stayDuration: 1,
-          hasReply: true,
-          reply: {
-            text: 'We sincerely apologize for the issues you experienced. We have addressed these concerns and would welcome you back for a better experience.',
-            date: '2024-01-13',
-            author: 'Hotel Manager'
-          },
-          helpful: 5,
-          verified: true
-        },
-        {
-          _id: '4',
-          customerName: 'Sarah Williams',
-          customerAvatar: '',
-          rating: 5,
-          title: 'Perfect for Business Trip',
-          comment: 'Great hotel for business travelers. Fast Wi-Fi, comfortable workspace, and excellent room service. The staff was very professional.',
-          date: '2024-01-10',
-          roomType: 'Business Suite',
-          stayDuration: 4,
-          hasReply: false,
-          helpful: 15,
-          verified: true
+      
+      // API call to fetch hotel reviews
+      const response = await fetch('/api/hotel/reviews', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
         }
-      ];
-      setReviews(mockReviews);
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch reviews');
+      }
+      
+      const data = await response.json();
+      setReviews(data.reviews || []);
     } catch (error) {
       console.error('Fetch reviews error:', error);
       setError('Failed to fetch reviews');
+      setReviews([]);
     } finally {
       setLoading(false);
     }

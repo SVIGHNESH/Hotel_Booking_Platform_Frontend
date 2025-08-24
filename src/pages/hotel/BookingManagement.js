@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Container,
   Typography,
@@ -28,28 +28,26 @@ import {
   Avatar,
   Divider,
   Alert,
-  Snackbar
+  Snackbar,
+  Card,
+  CardContent,
+  CircularProgress
 } from '@mui/material';
 import {
   Search,
   FilterList,
-  MoreVert,
   Visibility,
-  Edit,
   Cancel,
   CheckCircle,
   Phone,
   Email,
   CalendarToday,
-  People,
-  AttachMoney,
-  LocationOn
+  Receipt
 } from '@mui/icons-material';
 
 const BookingManagement = () => {
   const [bookings, setBookings] = useState([]);
   const [filteredBookings, setFilteredBookings] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
@@ -60,160 +58,14 @@ const BookingManagement = () => {
   const [actionType, setActionType] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
-  useEffect(() => {
-    loadBookings();
-  }, []);
+  // Cancellation states
+  const [cancelDialog, setCancelDialog] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [refundAmount, setRefundAmount] = useState(0);
+  const [cancelLoading, setCancelLoading] = useState(false);
 
-  useEffect(() => {
-    filterBookings();
-  }, [bookings, searchTerm, statusFilter]);
-
-  const loadBookings = async () => {
-    setLoading(true);
-    try {
-      // Mock API call - replace with actual API
-      const mockBookings = [
-        {
-          id: 'BK001',
-          bookingNumber: 'HB-2024-001',
-          customer: {
-            id: 'C001',
-            name: 'John Smith',
-            email: 'john.smith@email.com',
-            phone: '+1 (555) 123-4567',
-            avatar: null
-          },
-          room: {
-            number: '201',
-            type: 'Deluxe King Room',
-            floor: 2
-          },
-          checkIn: '2024-12-25T15:00:00',
-          checkOut: '2024-12-28T11:00:00',
-          guests: 2,
-          nights: 3,
-          totalAmount: 450,
-          status: 'confirmed',
-          paymentStatus: 'paid',
-          bookingDate: '2024-12-20T10:30:00',
-          specialRequests: 'Late check-in requested, ground floor room preferred',
-          source: 'Website'
-        },
-        {
-          id: 'BK002',
-          bookingNumber: 'HB-2024-002',
-          customer: {
-            id: 'C002',
-            name: 'Sarah Johnson',
-            email: 'sarah.j@email.com',
-            phone: '+1 (555) 987-6543',
-            avatar: null
-          },
-          room: {
-            number: '315',
-            type: 'Ocean View Suite',
-            floor: 3
-          },
-          checkIn: '2024-12-24T15:00:00',
-          checkOut: '2024-12-27T11:00:00',
-          guests: 2,
-          nights: 3,
-          totalAmount: 680,
-          status: 'checked-in',
-          paymentStatus: 'paid',
-          bookingDate: '2024-12-19T14:20:00',
-          specialRequests: '',
-          source: 'Booking.com'
-        },
-        {
-          id: 'BK003',
-          bookingNumber: 'HB-2024-003',
-          customer: {
-            id: 'C003',
-            name: 'Mike Wilson',
-            email: 'mike.wilson@email.com',
-            phone: '+1 (555) 456-7890',
-            avatar: null
-          },
-          room: {
-            number: '102',
-            type: 'Standard Double Room',
-            floor: 1
-          },
-          checkIn: '2024-12-26T15:00:00',
-          checkOut: '2024-12-29T11:00:00',
-          guests: 4,
-          nights: 3,
-          totalAmount: 320,
-          status: 'pending',
-          paymentStatus: 'pending',
-          bookingDate: '2024-12-21T09:15:00',
-          specialRequests: 'Two extra beds required',
-          source: 'Phone'
-        },
-        {
-          id: 'BK004',
-          bookingNumber: 'HB-2024-004',
-          customer: {
-            id: 'C004',
-            name: 'Emily Davis',
-            email: 'emily.davis@email.com',
-            phone: '+1 (555) 321-0987',
-            avatar: null
-          },
-          room: {
-            number: '408',
-            type: 'Mountain View Room',
-            floor: 4
-          },
-          checkIn: '2024-12-23T15:00:00',
-          checkOut: '2024-12-25T11:00:00',
-          guests: 2,
-          nights: 2,
-          totalAmount: 520,
-          status: 'checked-out',
-          paymentStatus: 'paid',
-          bookingDate: '2024-12-18T16:45:00',
-          specialRequests: 'Anniversary celebration, flowers and champagne',
-          source: 'Website'
-        },
-        {
-          id: 'BK005',
-          bookingNumber: 'HB-2024-005',
-          customer: {
-            id: 'C005',
-            name: 'David Brown',
-            email: 'david.brown@email.com',
-            phone: '+1 (555) 654-3210',
-            avatar: null
-          },
-          room: {
-            number: '205',
-            type: 'Business Suite',
-            floor: 2
-          },
-          checkIn: '2024-12-30T15:00:00',
-          checkOut: '2025-01-03T11:00:00',
-          guests: 1,
-          nights: 4,
-          totalAmount: 800,
-          status: 'cancelled',
-          paymentStatus: 'refunded',
-          bookingDate: '2024-12-15T11:30:00',
-          specialRequests: 'Business center access required',
-          source: 'Expedia'
-        }
-      ];
-
-      setBookings(mockBookings);
-    } catch (error) {
-      console.error('Failed to load bookings:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const filterBookings = () => {
+  // Filter bookings function
+  const filterBookings = useCallback(() => {
     let filtered = bookings;
 
     // Search filter
@@ -232,6 +84,36 @@ const BookingManagement = () => {
     }
 
     setFilteredBookings(filtered);
+  }, [bookings, searchTerm, statusFilter]);
+
+  useEffect(() => {
+    loadBookings();
+  }, []);
+
+  useEffect(() => {
+    filterBookings();
+  }, [filterBookings]);
+
+  const loadBookings = async () => {
+    try {
+      // API call to fetch hotel bookings
+      const response = await fetch('/api/hotel/bookings', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch bookings');
+      }
+      
+      const data = await response.json();
+      setBookings(data.bookings || []);
+    } catch (error) {
+      console.error('Failed to load bookings:', error);
+      setBookings([]);
+    }
   };
 
   const getStatusColor = (status) => {
@@ -272,13 +154,49 @@ const BookingManagement = () => {
   const handleActionClick = (booking, type) => {
     setSelectedBooking(booking);
     setActionType(type);
-    setActionDialog(true);
+    
+    if (type === 'cancel') {
+      // Open enhanced cancel dialog
+      setCancelDialog(true);
+      setCancelReason('');
+      setRefundAmount(0);
+      
+      // Calculate refund amount based on check-in date
+      const checkInDate = new Date(booking.checkIn);
+      const currentDate = new Date();
+      const daysDifference = Math.ceil((checkInDate - currentDate) / (1000 * 60 * 60 * 24));
+      
+      let refundPercentage = 0;
+      if (daysDifference >= 7) {
+        refundPercentage = 100;
+      } else if (daysDifference >= 3) {
+        refundPercentage = 50;
+      } else if (daysDifference >= 1) {
+        refundPercentage = 25;
+      } else {
+        refundPercentage = 0;
+      }
+      
+      setRefundAmount(Math.round((booking.totalAmount * refundPercentage) / 100));
+    } else {
+      setActionDialog(true);
+    }
   };
 
   const handleConfirmAction = async () => {
     try {
-      // Mock API call - replace with actual API
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // API call to update booking status
+      const response = await fetch(`/api/hotel/bookings/${selectedBooking.id}/${actionType}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to ${actionType} booking`);
+      }
 
       const updatedBookings = bookings.map(booking => {
         if (booking.id === selectedBooking.id) {
@@ -287,8 +205,6 @@ const BookingManagement = () => {
               return { ...booking, status: 'checked-in' };
             case 'check-out':
               return { ...booking, status: 'checked-out' };
-            case 'cancel':
-              return { ...booking, status: 'cancelled', paymentStatus: 'refunded' };
             case 'confirm':
               return { ...booking, status: 'confirmed', paymentStatus: 'paid' };
             default:
@@ -310,6 +226,71 @@ const BookingManagement = () => {
       setSnackbar({
         open: true,
         message: 'Action failed. Please try again.',
+        severity: 'error'
+      });
+    }
+  };
+
+  const handleCancelBooking = async () => {
+    if (!cancelReason.trim()) {
+      setSnackbar({
+        open: true,
+        message: 'Please select a reason for cancellation.',
+        severity: 'warning'
+      });
+      return;
+    }
+
+    setCancelLoading(true);
+    try {
+      // API call to cancel booking
+      const response = await fetch(`/api/hotel/bookings/${selectedBooking.id}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          reason: cancelReason,
+          refundAmount: refundAmount,
+          cancelledBy: 'hotel'
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to cancel booking');
+      }
+
+      const updatedBookings = bookings.map(booking => {
+        if (booking.id === selectedBooking.id) {
+          return {
+            ...booking,
+            status: 'cancelled',
+            paymentStatus: refundAmount > 0 ? 'refunded' : 'no-refund',
+            cancellationReason: cancelReason,
+            refundAmount: refundAmount,
+            cancelledBy: 'hotel',
+            cancelledAt: new Date().toISOString()
+          };
+        }
+        return booking;
+      });
+
+      setBookings(updatedBookings);
+      setCancelDialog(false);
+      setCancelLoading(false);
+      
+      setSnackbar({
+        open: true,
+        message: `Booking cancelled successfully. ${refundAmount > 0 ? `Refund of ₹${refundAmount} will be processed.` : 'No refund applicable.'}`,
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('Cancellation failed:', error);
+      setCancelLoading(false);
+      setSnackbar({
+        open: true,
+        message: 'Cancellation failed. Please try again.',
         severity: 'error'
       });
     }
@@ -686,6 +667,154 @@ const BookingManagement = () => {
           <Button onClick={() => setActionDialog(false)}>Cancel</Button>
           <Button onClick={handleConfirmAction} variant="contained" color="primary">
             Confirm {actionType.charAt(0).toUpperCase() + actionType.slice(1).replace('-', ' ')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Enhanced Cancel Booking Dialog */}
+      <Dialog open={cancelDialog} onClose={() => setCancelDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ bgcolor: 'error.main', color: 'white', display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Cancel />
+          Cancel Booking - Hotel Management
+        </DialogTitle>
+        <DialogContent sx={{ p: 3 }}>
+          {selectedBooking && (
+            <Grid container spacing={3}>
+              {/* Booking Information */}
+              <Grid item xs={12}>
+                <Card variant="outlined">
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom color="primary">
+                      Booking Information
+                    </Typography>
+                    <Typography variant="body2" gutterBottom>
+                      <strong>Booking ID:</strong> {selectedBooking.bookingNumber}
+                    </Typography>
+                    <Typography variant="body2" gutterBottom>
+                      <strong>Customer:</strong> {selectedBooking.customer.name}
+                    </Typography>
+                    <Typography variant="body2" gutterBottom>
+                      <strong>Room:</strong> {selectedBooking.room.number} - {selectedBooking.room.type}
+                    </Typography>
+                    <Typography variant="body2" gutterBottom>
+                      <strong>Check-in:</strong> {new Date(selectedBooking.checkIn).toLocaleDateString('en-IN', { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                      })}
+                    </Typography>
+                    <Typography variant="body2" gutterBottom>
+                      <strong>Check-out:</strong> {new Date(selectedBooking.checkOut).toLocaleDateString('en-IN', { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                      })}
+                    </Typography>
+                    <Typography variant="body2" gutterBottom>
+                      <strong>Total Amount:</strong> ₹{selectedBooking.totalAmount}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              {/* Refund Information */}
+              <Grid item xs={12} md={6}>
+                <Card variant="outlined" sx={{ bgcolor: refundAmount > 0 ? 'success.light' : 'warning.light', color: 'white' }}>
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Receipt />
+                      Refund Information
+                    </Typography>
+                    <Typography variant="h4" gutterBottom color="inherit">
+                      ₹{refundAmount}
+                    </Typography>
+                    <Typography variant="body2" color="inherit">
+                      {refundAmount === selectedBooking?.totalAmount && 'Full refund (100%)'}
+                      {refundAmount === Math.round(selectedBooking?.totalAmount * 0.5) && 'Partial refund (50%)'}
+                      {refundAmount === Math.round(selectedBooking?.totalAmount * 0.25) && 'Partial refund (25%)'}
+                      {refundAmount === 0 && 'No refund applicable'}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              {/* Cancellation Policy */}
+              <Grid item xs={12} md={6}>
+                <Card variant="outlined">
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom color="primary">
+                      Hotel Cancellation Policy
+                    </Typography>
+                    <Typography variant="body2" gutterBottom>
+                      • 7+ days before: 100% refund
+                    </Typography>
+                    <Typography variant="body2" gutterBottom>
+                      • 3-6 days before: 50% refund
+                    </Typography>
+                    <Typography variant="body2" gutterBottom>
+                      • 1-2 days before: 25% refund
+                    </Typography>
+                    <Typography variant="body2" gutterBottom>
+                      • Same day: No refund
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              {/* Cancellation Reason */}
+              <Grid item xs={12}>
+                <Typography variant="h6" gutterBottom color="primary">
+                  Reason for Cancellation
+                </Typography>
+                <FormControl fullWidth>
+                  <InputLabel>Select Reason</InputLabel>
+                  <Select
+                    value={cancelReason}
+                    label="Select Reason"
+                    onChange={(e) => setCancelReason(e.target.value)}
+                  >
+                    <MenuItem value="customer_request">Customer Request</MenuItem>
+                    <MenuItem value="overbooking">Overbooking</MenuItem>
+                    <MenuItem value="maintenance_issues">Room Maintenance Issues</MenuItem>
+                    <MenuItem value="facility_unavailable">Facility Unavailable</MenuItem>
+                    <MenuItem value="emergency">Emergency</MenuItem>
+                    <MenuItem value="policy_violation">Policy Violation</MenuItem>
+                    <MenuItem value="payment_issues">Payment Issues</MenuItem>
+                    <MenuItem value="other">Other</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              {/* Warning Notice */}
+              <Grid item xs={12}>
+                <Alert severity="warning" sx={{ mt: 2 }}>
+                  <Typography variant="body2">
+                    <strong>Important:</strong> This action cannot be undone. The customer will be notified immediately, 
+                    and refund processing will begin automatically if applicable.
+                  </Typography>
+                </Alert>
+              </Grid>
+            </Grid>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 3, gap: 1 }}>
+          <Button 
+            onClick={() => setCancelDialog(false)}
+            size="large"
+          >
+            Keep Booking
+          </Button>
+          <Button 
+            onClick={handleCancelBooking}
+            variant="contained" 
+            color="error"
+            size="large"
+            disabled={cancelLoading || !cancelReason}
+            startIcon={cancelLoading ? <CircularProgress size={20} /> : <Cancel />}
+          >
+            {cancelLoading ? 'Cancelling...' : 'Confirm Cancellation'}
           </Button>
         </DialogActions>
       </Dialog>
