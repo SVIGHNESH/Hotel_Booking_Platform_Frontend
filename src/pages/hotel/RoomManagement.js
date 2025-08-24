@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import {
   Container,
   Typography,
@@ -32,6 +33,10 @@ import {
   Tab,
   Tabs,
   Tooltip,
+  InputAdornment,
+  OutlinedInput,
+  Checkbox,
+  ListItemText,
   CircularProgress
 } from '@mui/material';
 import {
@@ -59,6 +64,48 @@ const RoomManagement = () => {
   const [selectedDate, setSelectedDate] = useState(null);
   const [blockReason, setBlockReason] = useState('');
   const [blockType, setBlockType] = useState('maintenance');
+  
+  // Add Room Dialog States
+  const [addRoomDialogOpen, setAddRoomDialogOpen] = useState(false);
+  const [addRoomLoading, setAddRoomLoading] = useState(false);
+  const [addRoomError, setAddRoomError] = useState('');
+  const [addRoomSuccess, setAddRoomSuccess] = useState('');
+  const [newRoom, setNewRoom] = useState({
+    name: '',
+    roomType: 'Standard',
+    description: '',
+    pricing: {
+      basePrice: '',
+      currency: 'INR'
+    },
+    capacity: {
+      adults: 2,
+      children: 0
+    },
+    size: {
+      value: '',
+      unit: 'sqft'
+    },
+    amenities: [],
+    totalRooms: 1
+  });
+
+  const roomTypes = [
+    { value: 'Standard', label: 'Standard Room' },
+    { value: 'Deluxe', label: 'Deluxe Room' },
+    { value: 'Suite', label: 'Suite' },
+    { value: 'Presidential Suite', label: 'Presidential Suite' },
+    { value: 'Single', label: 'Single Room' },
+    { value: 'Double', label: 'Double Room' },
+    { value: 'Family Room', label: 'Family Room' }
+  ];
+
+  const amenitiesList = [
+    'WiFi', 'Air Conditioning', 'TV', 'Mini Bar',
+    'Safe', 'Balcony', 'Kitchenette', 'Coffee Machine',
+    'Hair Dryer', 'Iron', 'Bathtub', 'Shower',
+    'Work Desk', 'Sofa', 'Ocean View', 'City View'
+  ];
 
   const tabData = [
     { label: 'Room Calendar', value: 'calendar' },
@@ -79,87 +126,52 @@ const RoomManagement = () => {
   const fetchRoomsAndBookings = async () => {
     try {
       setLoading(true);
+      setError('');
       
-      // Mock rooms data
-      const mockRooms = [
-        {
-          _id: '1',
-          roomNumber: '101',
-          roomType: 'deluxe',
-          name: 'Deluxe Room with City View',
-          price: 5000,
-          isAvailable: true,
-          status: 'ready',
-          capacity: { adults: 2, children: 1 }
-        },
-        {
-          _id: '2',
-          roomNumber: '102',
-          roomType: 'standard',
-          name: 'Standard Room',
-          price: 3500,
-          isAvailable: true,
-          status: 'ready',
-          capacity: { adults: 2, children: 1 }
-        },
-        {
-          _id: '3',
-          roomNumber: '201',
-          roomType: 'suite',
-          name: 'Executive Suite',
-          price: 12000,
-          isAvailable: false,
-          status: 'maintenance',
-          capacity: { adults: 4, children: 2 }
-        },
-        {
-          _id: '4',
-          roomNumber: '202',
-          roomType: 'deluxe',
-          name: 'Deluxe Sea View',
-          price: 6500,
-          isAvailable: true,
-          status: 'occupied',
-          capacity: { adults: 2, children: 1 }
-        }
-      ];
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setError('Authentication token not found. Please login again.');
+        return;
+      }
+      
+      const headers = { Authorization: `Bearer ${token}` };
 
-      // Mock bookings data for calendar view
-      const mockBookings = [
-        {
-          _id: '1',
-          roomId: '1',
-          roomNumber: '101',
-          customerName: 'John Doe',
-          checkInDate: '2024-01-20',
-          checkOutDate: '2024-01-23',
-          status: 'confirmed'
-        },
-        {
-          _id: '2',
-          roomId: '2',
-          roomNumber: '102',
-          customerName: 'Jane Smith',
-          checkInDate: '2024-01-25',
-          checkOutDate: '2024-01-28',
-          status: 'confirmed'
-        },
-        {
-          _id: '3',
-          roomId: '4',
-          roomNumber: '202',
-          customerName: 'Mike Johnson',
-          checkInDate: '2024-01-18',
-          checkOutDate: '2024-01-22',
-          status: 'checked-in'
+      // Fetch hotel rooms from dedicated endpoint
+      try {
+        const roomsResponse = await axios.get('/api/hotel/rooms', { headers });
+        
+        if (roomsResponse.data.success) {
+          const roomsData = roomsResponse.data.data;
+          setRooms(roomsData.rooms || []);
+        } else {
+          setError('Failed to fetch room data: ' + roomsResponse.data.message);
         }
-      ];
+      } catch (roomError) {
+        console.error('Room fetch error:', roomError);
+        setError('Failed to fetch rooms: ' + (roomError.response?.data?.message || roomError.message));
+        setRooms([]); // Set empty array to prevent undefined errors
+      }
 
-      setRooms(mockRooms);
-      setBookings(mockBookings);
+      // Fetch hotel bookings for calendar view
+      try {
+        const bookingsResponse = await axios.get('/api/hotel/bookings', { headers });
+        if (bookingsResponse.data.success) {
+          const bookingsData = bookingsResponse.data.data;
+          setBookings(bookingsData.bookings || []);
+        } else {
+          console.log('Bookings fetch failed:', bookingsResponse.data.message);
+          setBookings([]);
+        }
+      } catch (bookingError) {
+        console.log('Bookings not available:', bookingError.message);
+        setBookings([]);
+      }
+
     } catch (error) {
-      console.error('Fetch data error:', error);
-      setError('Failed to fetch room data');
+      console.error('General fetch error:', error);
+      setError(error.response?.data?.message || 'Failed to fetch data');
+      setRooms([]);
+      setBookings([]);
     } finally {
       setLoading(false);
     }
@@ -214,6 +226,113 @@ const RoomManagement = () => {
         ? { ...room, isAvailable: !room.isAvailable }
         : room
     ));
+  };
+
+  // Add Room Functions
+  const handleAddRoom = () => {
+    setAddRoomDialogOpen(true);
+  };
+
+  const handleSaveRoom = async () => {
+    try {
+      setAddRoomLoading(true);
+      setAddRoomError('');
+      setAddRoomSuccess('');
+
+      // Validate required fields
+      if (!newRoom.name || !newRoom.roomType || !newRoom.pricing.basePrice || 
+          !newRoom.capacity.adults || !newRoom.description || !newRoom.totalRooms) {
+        setAddRoomError('Please fill in all required fields');
+        return;
+      }
+
+      // Validate description length
+      if (newRoom.description.length < 10) {
+        setAddRoomError('Description must be at least 10 characters long');
+        return;
+      }
+
+      if (newRoom.description.length > 500) {
+        setAddRoomError('Description must be no more than 500 characters');
+        return;
+      }
+
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setAddRoomError('Please login again. Session expired.');
+        return;
+      }
+
+      const roomData = {
+        name: newRoom.name,
+        roomType: newRoom.roomType,
+        description: newRoom.description,
+        pricing: {
+          basePrice: parseFloat(newRoom.pricing.basePrice),
+          currency: newRoom.pricing.currency
+        },
+        capacity: {
+          adults: parseInt(newRoom.capacity.adults),
+          children: parseInt(newRoom.capacity.children)
+        },
+        size: newRoom.size.value ? {
+          value: parseFloat(newRoom.size.value),
+          unit: newRoom.size.unit
+        } : undefined,
+        amenities: newRoom.amenities,
+        totalRooms: parseInt(newRoom.totalRooms)
+      };
+
+      console.log('Sending room data:', roomData);
+
+      const response = await axios.post('/api/hotel/rooms', roomData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      console.log('Room added successfully:', response.data);
+
+      // Show success message
+      setAddRoomSuccess('Room added successfully!');
+      
+      // Reset form and close dialog after a short delay
+      setTimeout(() => {
+        setNewRoom({
+          name: '',
+          roomType: 'Standard',
+          description: '',
+          pricing: {
+            basePrice: '',
+            currency: 'INR'
+          },
+          capacity: {
+            adults: 2,
+            children: 0
+          },
+          size: {
+            value: '',
+            unit: 'sqft'
+          },
+          amenities: [],
+          totalRooms: 1
+        });
+        setAddRoomDialogOpen(false);
+        setAddRoomSuccess('');
+        
+        // Refresh the room data
+        fetchRoomsAndBookings();
+      }, 1500);
+      
+    } catch (err) {
+      console.error('Add room error:', err);
+      console.error('Error response:', err.response?.data);
+      setAddRoomError(
+        err.response?.data?.message || 
+        err.response?.data?.errors?.[0]?.message || 
+        'Failed to add room. Please try again.'
+      );
+    } finally {
+      setAddRoomLoading(false);
+    }
   };
 
   const renderCalendarView = () => {
@@ -581,7 +700,7 @@ const RoomManagement = () => {
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" gutterBottom>Room Management</Typography>
-        <Button variant="contained" startIcon={<Add />}>
+        <Button variant="contained" startIcon={<Add />} onClick={handleAddRoom}>
           Add New Room
         </Button>
       </Box>
@@ -663,6 +782,146 @@ const RoomManagement = () => {
           <Button onClick={() => setBlockDialog(false)}>Cancel</Button>
           <Button onClick={handleConfirmBlock} variant="contained">
             Block Room
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Add Room Dialog */}
+      <Dialog open={addRoomDialogOpen} onClose={() => setAddRoomDialogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Add New Room</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+            <TextField
+              label="Room Name"
+              value={newRoom.name}
+              onChange={(e) => setNewRoom({ ...newRoom, name: e.target.value })}
+              required
+              fullWidth
+              helperText="e.g., Ocean View Standard Room, Deluxe Suite 101"
+            />
+            <FormControl fullWidth required>
+              <InputLabel>Room Type</InputLabel>
+              <Select
+                value={newRoom.roomType}
+                label="Room Type"
+                onChange={(e) => setNewRoom({ ...newRoom, roomType: e.target.value })}
+              >
+                {roomTypes.map((type) => (
+                  <MenuItem key={type.value} value={type.value}>
+                    {type.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <TextField
+              label="Price per Night"
+              type="number"
+              value={newRoom.pricing.basePrice}
+              onChange={(e) => setNewRoom({ 
+                ...newRoom, 
+                pricing: { ...newRoom.pricing, basePrice: e.target.value }
+              })}
+              required
+              fullWidth
+              InputProps={{
+                startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+              }}
+            />
+            <TextField
+              label="Adult Capacity"
+              type="number"
+              value={newRoom.capacity.adults}
+              onChange={(e) => setNewRoom({ 
+                ...newRoom, 
+                capacity: { ...newRoom.capacity, adults: parseInt(e.target.value) || 1 }
+              })}
+              required
+              fullWidth
+              inputProps={{ min: 1, max: 10 }}
+            />
+            <TextField
+              label="Children Capacity"
+              type="number"
+              value={newRoom.capacity.children}
+              onChange={(e) => setNewRoom({ 
+                ...newRoom, 
+                capacity: { ...newRoom.capacity, children: parseInt(e.target.value) || 0 }
+              })}
+              fullWidth
+              inputProps={{ min: 0, max: 5 }}
+            />
+            <TextField
+              label="Room Size (sq ft)"
+              type="number"
+              value={newRoom.size.value}
+              onChange={(e) => setNewRoom({ 
+                ...newRoom, 
+                size: { ...newRoom.size, value: e.target.value }
+              })}
+              fullWidth
+            />
+            <TextField
+              label="Total Rooms Available"
+              type="number"
+              value={newRoom.totalRooms}
+              onChange={(e) => setNewRoom({ ...newRoom, totalRooms: parseInt(e.target.value) || 1 })}
+              required
+              fullWidth
+              inputProps={{ min: 1 }}
+              helperText="How many rooms of this type are available"
+            />
+            <TextField
+              label="Description"
+              multiline
+              rows={3}
+              value={newRoom.description}
+              onChange={(e) => setNewRoom({ ...newRoom, description: e.target.value })}
+              required
+              fullWidth
+              inputProps={{ minLength: 10, maxLength: 500 }}
+              helperText="Minimum 10 characters, maximum 500 characters"
+            />
+            <FormControl fullWidth>
+              <InputLabel>Amenities</InputLabel>
+              <Select
+                multiple
+                value={newRoom.amenities}
+                onChange={(e) => setNewRoom({ ...newRoom, amenities: e.target.value })}
+                input={<OutlinedInput label="Amenities" />}
+                renderValue={(selected) => (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {selected.map((value) => (
+                      <Chip key={value} label={value} size="small" />
+                    ))}
+                  </Box>
+                )}
+              >
+                {amenitiesList.map((amenity) => (
+                  <MenuItem key={amenity} value={amenity}>
+                    <Checkbox checked={newRoom.amenities.indexOf(amenity) > -1} />
+                    <ListItemText primary={amenity} />
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+          {addRoomError && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {addRoomError}
+            </Alert>
+          )}
+          {addRoomSuccess && (
+            <Alert severity="success" sx={{ mt: 2 }}>
+              {addRoomSuccess}
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAddRoomDialogOpen(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleSaveRoom} variant="contained" disabled={addRoomLoading}>
+            {addRoomLoading ? <CircularProgress size={24} /> : 'Add Room'}
           </Button>
         </DialogActions>
       </Dialog>

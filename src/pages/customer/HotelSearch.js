@@ -102,9 +102,9 @@ const HotelSearch = () => {
       if (response.data.success) {
         const allHotels = response.data.data || [];
         
-        // Filter hotels that are approved only
+        // Filter hotels that are verified only
         let filteredHotels = allHotels.filter(hotel => 
-          hotel.verificationStatus === 'approved'
+          hotel.isVerified === true
         );
 
         // Apply additional client-side filters

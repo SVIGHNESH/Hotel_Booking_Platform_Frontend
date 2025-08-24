@@ -96,7 +96,7 @@ const HotelDetails = () => {
   const handleBookRoom = (roomId) => {
     navigate(`/customer/booking`, { 
       state: { 
-        hotelId: hotel.id,
+        hotelId: hotel._id || hotel.id,
         roomId: roomId,
         hotelName: hotel.name 
       } 
@@ -172,15 +172,15 @@ const HotelDetails = () => {
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <Rating value={hotel.rating} precision={0.1} readOnly size="small" />
+                <Rating value={hotel.rating?.average || 0} precision={0.1} readOnly size="small" />
                 <Typography variant="body2" sx={{ ml: 1 }}>
-                  {hotel.rating} ({hotel.reviewCount} reviews)
+                  {hotel.rating?.average || 0} ({hotel.rating?.count || 0} reviews)
                 </Typography>
               </Box>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                 <LocationOn color="action" sx={{ fontSize: 16, mr: 0.5 }} />
                 <Typography variant="body2" color="text.secondary">
-                  {hotel.fullAddress}
+                  {hotel.address?.street}, {hotel.address?.city}, {hotel.address?.state}
                 </Typography>
               </Box>
             </Box>
@@ -329,16 +329,16 @@ const HotelDetails = () => {
                             <Grid item xs={6} sm={3}>
                               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                                 <Room color="action" sx={{ mr: 0.5, fontSize: 16 }} />
-                                <Typography variant="body2">{room.size}</Typography>
+                                <Typography variant="body2">{room.maxOccupancy} guests max</Typography>
                               </Box>
                             </Grid>
                             <Grid item xs={12} sm={6}>
-                              <Typography variant="body2"><strong>Bed:</strong> {room.bedType}</Typography>
+                              <Typography variant="body2"><strong>Type:</strong> {room.type || 'Standard'}</Typography>
                             </Grid>
                           </Grid>
 
                           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 2 }}>
-                            {room.amenities.map((amenity, index) => (
+                            {(room.amenities || []).map((amenity, index) => (
                               <Chip key={index} label={amenity} size="small" variant="outlined" />
                             ))}
                           </Box>
@@ -347,16 +347,8 @@ const HotelDetails = () => {
                             <Box>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <Typography variant="h6" color="primary">
-                                  ₹{room.price}
+                                  ₹{room.pricePerNight}
                                 </Typography>
-                                {room.originalPrice > room.price && (
-                                  <Typography 
-                                    variant="body2" 
-                                    sx={{ textDecoration: 'line-through', color: 'text.secondary' }}
-                                  >
-                                    ₹{room.originalPrice}
-                                  </Typography>
-                                )}
                               </Box>
                               <Typography variant="body2" color="text.secondary">
                                 per night
@@ -370,10 +362,10 @@ const HotelDetails = () => {
                             <Button
                               variant="contained"
                               size="large"
-                              disabled={!room.available}
-                              onClick={() => handleBookRoom(room.id)}
+                              disabled={!room.isAvailable}
+                              onClick={() => handleBookRoom(room._id || room.id)}
                             >
-                              {room.available ? 'Book Now' : 'Unavailable'}
+                              {room.isAvailable ? 'Book Now' : 'Unavailable'}
                             </Button>
                           </Box>
                         </Grid>

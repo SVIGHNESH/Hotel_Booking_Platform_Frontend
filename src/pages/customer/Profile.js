@@ -45,6 +45,7 @@ import {
   Receipt
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
+import axios from 'axios';
 
 const Profile = () => {
   const { user, updateProfile } = useAuth();
@@ -138,36 +139,34 @@ const Profile = () => {
   const handleSave = async () => {
     setLoading(true);
     try {
-      // API call to update profile
-      const response = await fetch('/api/user/profile', {
-        method: 'PUT',
+      // API call to update profile using axios
+      const response = await axios.put('/api/customer/profile', profileData, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(profileData)
+        }
       });
       
-      if (!response.ok) {
-        throw new Error('Failed to update profile');
+      if (response.data.success) {
+        // Update user context
+        if (updateProfile) {
+          updateProfile(profileData);
+        }
+        
+        setEditMode(false);
+        setSnackbar({
+          open: true,
+          message: 'Profile updated successfully!',
+          severity: 'success'
+        });
+      } else {
+        throw new Error(response.data.message || 'Failed to update profile');
       }
-      
-      // Update user context
-      if (updateProfile) {
-        updateProfile(profileData);
-      }
-      
-      setEditMode(false);
-      setSnackbar({
-        open: true,
-        message: 'Profile updated successfully!',
-        severity: 'success'
-      });
     } catch (error) {
       console.error('Failed to update profile:', error);
       setSnackbar({
         open: true,
-        message: 'Failed to update profile. Please try again.',
+        message: error.response?.data?.message || 'Failed to update profile. Please try again.',
         severity: 'error'
       });
     } finally {
