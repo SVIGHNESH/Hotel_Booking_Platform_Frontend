@@ -489,6 +489,7 @@ const RoomManagement = () => {
           </TableHead>
           <TableBody>
             {rooms.map(room => {
+              const safeStatus = room.status || (room.isAvailable ? 'ready' : 'maintenance');
               const currentBooking = bookings.find(b => 
                 b.roomId === room._id && 
                 new Date(b.checkInDate) <= new Date() && 
@@ -499,7 +500,7 @@ const RoomManagement = () => {
                 <TableRow key={room._id}>
                   <TableCell>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Avatar sx={{ width: 32, height: 32, bgcolor: getRoomStatusColor(room.status) + '.light' }}>
+                      <Avatar sx={{ width: 32, height: 32, bgcolor: getRoomStatusColor(safeStatus) + '.light' }}>
                         <Hotel fontSize="small" />
                       </Avatar>
                       <Box>
@@ -521,8 +522,8 @@ const RoomManagement = () => {
                   </TableCell>
                   <TableCell>
                     <Chip
-                      label={room.status.charAt(0).toUpperCase() + room.status.slice(1)}
-                      color={getRoomStatusColor(room.status)}
+                      label={safeStatus.charAt(0).toUpperCase() + safeStatus.slice(1)}
+                      color={getRoomStatusColor(safeStatus)}
                       size="small"
                     />
                   </TableCell>

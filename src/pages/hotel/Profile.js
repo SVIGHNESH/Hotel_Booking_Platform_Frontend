@@ -98,7 +98,33 @@ const Profile = () => {
       });
 
       if (response.data.success) {
-        setHotelData(response.data.data);
+        const apiData = response.data.data || {};
+        const normalized = {
+          ...apiData,
+          // Ensure nested objects exist
+          address: {
+            street: '', city: '', state: '', zipCode: '', country: 'India',
+            ...(apiData.address || {})
+          },
+          contactInfo: {
+            phone: '', email: '', website: '',
+            ...(apiData.contactInfo || {})
+          },
+          priceRange: {
+            min: apiData.priceRange?.min ?? 0,
+            max: apiData.priceRange?.max ?? apiData.priceRange?.min ?? 0,
+            currency: apiData.priceRange?.currency || 'INR'
+          },
+          amenities: Array.isArray(apiData.amenities) ? apiData.amenities : [],
+          policies: {
+            checkIn: apiData.checkInTime || apiData.policies?.checkIn || '15:00',
+            checkOut: apiData.checkOutTime || apiData.policies?.checkOut || '11:00',
+            cancellationPolicy: apiData.policies?.cancellation || '',
+            petPolicy: !!apiData.policies?.pets, // boolean
+            smokingPolicy: !!apiData.policies?.smokingPolicy // fallback false
+          }
+        };
+        setHotelData(normalized);
         setHotelExists(true);
         setEditing(false);
       }
@@ -144,19 +170,20 @@ const Profile = () => {
   const handleInputChange = (field, value) => {
     setHotelData(prev => {
       if (field.includes('.')) {
-        const [parent, child] = field.split('.');
-        return {
-          ...prev,
-          [parent]: {
-            ...prev[parent],
-            [child]: value
-          }
-        };
+        const parts = field.split('.');
+        if (parts.length === 2) {
+          const [parent, child] = parts;
+          return {
+            ...prev,
+            [parent]: {
+              ...(prev[parent] || {}),
+              [child]: value
+            }
+          };
+        }
+        // Support deeper nesting if needed later
       }
-      return {
-        ...prev,
-        [field]: value
-      };
+      return { ...prev, [field]: value };
     });
   };
 
@@ -509,7 +536,7 @@ const Profile = () => {
                     fullWidth
                     label="Check-in Time"
                     type="time"
-                    value={hotelData.policies.checkIn}
+                    value={hotelData.policies?.checkIn || ''}
                     onChange={(e) => handleInputChange('policies.checkIn', e.target.value)}
                     disabled={!editing}
                     InputLabelProps={{ shrink: true }}
@@ -521,7 +548,7 @@ const Profile = () => {
                     fullWidth
                     label="Check-out Time"
                     type="time"
-                    value={hotelData.policies.checkOut}
+                    value={hotelData.policies?.checkOut || ''}
                     onChange={(e) => handleInputChange('policies.checkOut', e.target.value)}
                     disabled={!editing}
                     InputLabelProps={{ shrink: true }}
@@ -532,7 +559,7 @@ const Profile = () => {
                   <TextField
                     fullWidth
                     label="Cancellation Policy"
-                    value={hotelData.policies.cancellationPolicy}
+                    value={hotelData.policies?.cancellationPolicy || ''}
                     onChange={(e) => handleInputChange('policies.cancellationPolicy', e.target.value)}
                     disabled={!editing}
                     multiline
@@ -545,7 +572,7 @@ const Profile = () => {
                   <FormControlLabel
                     control={
                       <Switch
-                        checked={hotelData.policies.petPolicy}
+                        checked={hotelData.policies?.petPolicy || false}
                         onChange={(e) => handleInputChange('policies.petPolicy', e.target.checked)}
                         disabled={!editing}
                       />
@@ -558,7 +585,7 @@ const Profile = () => {
                   <FormControlLabel
                     control={
                       <Switch
-                        checked={hotelData.policies.smokingPolicy}
+                        checked={hotelData.policies?.smokingPolicy || false}
                         onChange={(e) => handleInputChange('policies.smokingPolicy', e.target.checked)}
                         disabled={!editing}
                       />
