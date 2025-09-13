@@ -97,7 +97,7 @@ const Dashboard = () => {
           const hotels = hotelsResponse.data.data || [];
           // Get top rated hotels as recommendations
           const topHotels = hotels
-            .filter(hotel => hotel.verificationStatus === 'approved')
+            .filter(hotel => hotel.isVerified === true)
             .sort((a, b) => (b.rating || 0) - (a.rating || 0))
             .slice(0, 4);
           setRecommendations(topHotels);

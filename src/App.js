@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { Box } from '@mui/material';
 
 import { useAuth } from './contexts/AuthContext';
+import ErrorBoundary from './components/ErrorBoundary';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
 import Home from './pages/Home';
@@ -83,7 +84,8 @@ function App() {
       <Navbar />
       
       <Box component="main" sx={{ flexGrow: 1, pt: 2 }}>
-        <Routes>
+        <ErrorBoundary>
+          <Routes>
           {/* Public Routes */}
           <Route path="/" element={<Home />} />
           <Route path="/search" element={<HotelSearch />} />
@@ -279,12 +281,11 @@ function App() {
 
           {/* 404 Route */}
           <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+          </Routes>
+        </ErrorBoundary>
       </Box>
 
       <Footer />
     </Box>
   );
-}
-
-export default App;
+}export default App;

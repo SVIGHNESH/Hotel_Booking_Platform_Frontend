@@ -66,26 +66,23 @@ const GrievanceManagement = () => {
   const fetchGrievances = async () => {
     try {
       setLoading(true);
-      
-      // API call to fetch grievances
-      const response = await fetch('/api/admin/grievances', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch grievances');
+      setError('');
+
+      const token = localStorage.getItem('token');
+      const res = await axios.get('/api/admin/grievances', { headers: { Authorization: `Bearer ${token}` } });
+      if (res.data && res.data.success) {
+        setGrievances(res.data.data?.grievances || []);
+        setTotalGrievances(res.data.data?.pagination?.totalGrievances || (res.data.data?.grievances?.length || 0));
+      } else {
+        setGrievances([]);
+        setTotalGrievances(0);
+        setError(res.data?.message || 'Failed to fetch grievances');
       }
-      
-      const data = await response.json();
-      setGrievances(data.grievances || []);
-      setTotalGrievances(data.total || 0);
     } catch (error) {
       console.error('Failed to fetch grievances:', error);
       setGrievances([]);
       setTotalGrievances(0);
+      setError(error.response?.data?.message || error.message || 'Failed to fetch grievances');
     } finally {
       setLoading(false);
     }
@@ -93,26 +90,14 @@ const GrievanceManagement = () => {
 
   const handleStatusUpdate = async (grievanceId, newStatus) => {
     try {
-      // API call to update grievance status
-      const response = await fetch(`/api/admin/grievances/${grievanceId}/status`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ status: newStatus })
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to update status');
+      const token = localStorage.getItem('token');
+      const res = await axios.put(`/api/admin/grievances/${grievanceId}/status`, { status: newStatus }, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.data && res.data.success) {
+        setGrievances(prev => prev.map(g => g._id === grievanceId ? { ...g, status: newStatus } : g));
+        setAnchorEl(null);
+      } else {
+        setError(res.data?.message || 'Failed to update status');
       }
-      
-      // Update local state
-      setGrievances(prev => prev.map(g => 
-        g._id === grievanceId ? { ...g, status: newStatus } : g
-      ));
-      
-      setAnchorEl(null);
     } catch (error) {
       console.error('Status update error:', error);
       setError('Failed to update status');
@@ -123,35 +108,25 @@ const GrievanceManagement = () => {
     try {
       if (!responseDialog.response.trim()) return;
 
-      // API call to add response to grievance
-      const response = await fetch(`/api/admin/grievances/${responseDialog.grievance._id}/respond`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ message: responseDialog.response })
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to add response');
+      const token = localStorage.getItem('token');
+      const res = await axios.post(`/api/admin/grievances/${responseDialog.grievance._id}/respond`, { message: responseDialog.response }, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.data && res.data.success) {
+        setGrievances(prev => prev.map(g => 
+          g._id === responseDialog.grievance._id 
+            ? { 
+                ...g, 
+                responses: [...(g.responses || []), { 
+                  message: responseDialog.response, 
+                  timestamp: new Date().toISOString() 
+                }],
+                status: g.status === 'open' ? 'in-progress' : g.status
+              } 
+            : g
+        ));
+        setResponseDialog({ open: false, grievance: null, response: '' });
+      } else {
+        setError(res.data?.message || 'Failed to add response');
       }
-      
-      // Update local state
-      setGrievances(prev => prev.map(g => 
-        g._id === responseDialog.grievance._id 
-          ? { 
-              ...g, 
-              responses: [...g.responses, { 
-                message: responseDialog.response, 
-                timestamp: new Date().toISOString() 
-              }],
-              status: g.status === 'open' ? 'in-progress' : g.status
-            } 
-          : g
-      ));
-      
-      setResponseDialog({ open: false, grievance: null, response: '' });
     } catch (error) {
       console.error('Add response error:', error);
       setError('Failed to add response');

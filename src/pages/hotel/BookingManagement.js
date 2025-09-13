@@ -96,20 +96,13 @@ const BookingManagement = () => {
 
   const loadBookings = async () => {
     try {
-      // API call to fetch hotel bookings
-      const response = await fetch('/api/hotel/bookings', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch bookings');
+      const token = localStorage.getItem('token');
+      const res = await axios.get('/api/hotel/bookings', { headers: { Authorization: `Bearer ${token}` } });
+      if (res.data && res.data.success) {
+        setBookings(res.data.data?.bookings || (res.data.bookings || []));
+      } else {
+        setBookings([]);
       }
-      
-      const data = await response.json();
-      setBookings(data.bookings || []);
     } catch (error) {
       console.error('Failed to load bookings:', error);
       setBookings([]);
