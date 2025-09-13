@@ -600,6 +600,18 @@ const MyBookings = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Global Snackbar for MyBookings */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      >
+        <Alert onClose={() => setSnackbar({ ...snackbar, open: false })} severity={snackbar.severity} sx={{ width: '100%' }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+
     </Container>
   );
 };

@@ -156,39 +156,28 @@ const BookingHistory = () => {
 
   const handleSubmitReview = async () => {
     try {
-      // API call to submit review
-      const response = await fetch(`/api/bookings/${selectedBooking.bookingId}/review`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          rating: rating,
-          comment: reviewText
-        })
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to submit review');
-      }
-      
-      setBookings(prev => prev.map(booking => 
-        booking._id === selectedBooking._id 
-          ? {
-              ...booking,
-              hasReview: true,
-              review: {
-                rating: rating,
-                comment: reviewText
+      const res = await axios.post(`/api/bookings/${selectedBooking.bookingId}/review`, { rating, comment: reviewText }, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+
+      if (res.data && res.data.success) {
+        setBookings(prev => prev.map(booking => 
+          booking._id === selectedBooking._id 
+            ? {
+                ...booking,
+                hasReview: true,
+                review: {
+                  rating: rating,
+                  comment: reviewText
+                }
               }
-            }
-          : booking
-      ));
-      
-      setSuccess('Review submitted successfully');
-      setReviewDialog(false);
-      setTimeout(() => setSuccess(''), 3000);
+            : booking
+        ));
+
+        setSuccess('Review submitted successfully');
+        setReviewDialog(false);
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        setError(res.data?.message || 'Failed to submit review');
+      }
     } catch (error) {
       console.error('Submit review error:', error);
       setError('Failed to submit review');

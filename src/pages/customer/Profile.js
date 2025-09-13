@@ -160,7 +160,9 @@ const Profile = () => {
           severity: 'success'
         });
       } else {
-        throw new Error(response.data.message || 'Failed to update profile');
+        setSnackbar({ open: true, message: response.data.message || 'Failed to update profile', severity: 'error' });
+        setLoading(false);
+        return;
       }
     } catch (error) {
       console.error('Failed to update profile:', error);

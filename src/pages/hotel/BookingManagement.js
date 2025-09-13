@@ -178,17 +178,9 @@ const BookingManagement = () => {
 
   const handleConfirmAction = async () => {
     try {
-      // API call to update booking status
-      const response = await fetch(`/api/hotel/bookings/${selectedBooking.id}/${actionType}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to ${actionType} booking`);
+      const res = await axios.post(`/api/hotel/bookings/${selectedBooking.id}/${actionType}`, {}, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+      if (!(res.data && res.data.success)) {
+        throw new Error(res.data?.message || `Failed to ${actionType} booking`);
       }
 
       const updatedBookings = bookings.map(booking => {
@@ -236,22 +228,14 @@ const BookingManagement = () => {
 
     setCancelLoading(true);
     try {
-      // API call to cancel booking
-      const response = await fetch(`/api/hotel/bookings/${selectedBooking.id}/cancel`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          reason: cancelReason,
-          refundAmount: refundAmount,
-          cancelledBy: 'hotel'
-        })
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to cancel booking');
+      const res = await axios.post(`/api/hotel/bookings/${selectedBooking.id}/cancel`, {
+        reason: cancelReason,
+        refundAmount: refundAmount,
+        cancelledBy: 'hotel'
+      }, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+
+      if (!(res.data && res.data.success)) {
+        throw new Error(res.data?.message || 'Failed to cancel booking');
       }
 
       const updatedBookings = bookings.map(booking => {
