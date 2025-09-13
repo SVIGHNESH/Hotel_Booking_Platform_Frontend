@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
 import {
   Container,
   Typography,
@@ -180,7 +181,8 @@ const BookingManagement = () => {
     try {
       const res = await axios.post(`/api/hotel/bookings/${selectedBooking.id}/${actionType}`, {}, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
       if (!(res.data && res.data.success)) {
-        throw new Error(res.data?.message || `Failed to ${actionType} booking`);
+        setSnackbar({ open: true, message: res.data?.message || `Failed to ${actionType} booking`, severity: 'error' });
+        return;
       }
 
       const updatedBookings = bookings.map(booking => {
@@ -235,7 +237,9 @@ const BookingManagement = () => {
       }, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
       if (!(res.data && res.data.success)) {
-        throw new Error(res.data?.message || 'Failed to cancel booking');
+        setSnackbar({ open: true, message: res.data?.message || 'Failed to cancel booking', severity: 'error' });
+        setCancelLoading(false);
+        return;
       }
 
       const updatedBookings = bookings.map(booking => {

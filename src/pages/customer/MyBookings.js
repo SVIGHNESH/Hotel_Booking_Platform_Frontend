@@ -75,7 +75,9 @@ const MyBookings = () => {
       if (response.data.success) {
         setBookings(response.data.data || []);
       } else {
-        throw new Error('Failed to fetch bookings');
+        setSnackbar({ open: true, message: 'Failed to fetch bookings', severity: 'error' });
+        setBookings([]);
+        return;
       }
     } catch (error) {
       console.error('Failed to load bookings:', error);
