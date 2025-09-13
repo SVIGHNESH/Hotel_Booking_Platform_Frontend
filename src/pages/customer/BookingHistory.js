@@ -79,21 +79,13 @@ const BookingHistory = () => {
   const fetchBookingHistory = async () => {
     try {
       setLoading(true);
-      
-      // API call to fetch booking history
-      const response = await fetch('/api/user/booking-history', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch booking history');
+      const res = await axios.get('/api/user/booking-history', { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+      if (res.data && res.data.success) {
+        setBookings(res.data.data?.bookings || (res.data.bookings || []));
+      } else {
+        setError(res.data?.message || 'Failed to fetch booking history');
+        setBookings([]);
       }
-      
-      const data = await response.json();
-      setBookings(data.bookings || []);
     } catch (error) {
       console.error('Fetch booking history error:', error);
       setError('Failed to fetch booking history');

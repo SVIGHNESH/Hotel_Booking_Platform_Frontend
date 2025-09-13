@@ -20,6 +20,7 @@ import {
   Rating,
   Divider,
   Alert,
+  Snackbar,
   CircularProgress,
   Menu,
   MenuItem,
@@ -39,6 +40,7 @@ import {
   CheckCircle,
   AccessTime
 } from '@mui/icons-material';
+import axios from 'axios';
 
 const MyBookings = () => {
   const [currentTab, setCurrentTab] = useState(0);
@@ -50,6 +52,7 @@ const MyBookings = () => {
   const [refundAmount, setRefundAmount] = useState(0);
   const [reviewDialog, setReviewDialog] = useState(false);
   const [reviewData, setReviewData] = useState({ rating: 5, comment: '' });
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [anchorEl, setAnchorEl] = useState(null);
 
   const tabLabels = ['All Bookings', 'Upcoming', 'Past', 'Cancelled'];
@@ -167,50 +170,38 @@ const MyBookings = () => {
   const confirmCancelBooking = async () => {
     try {
       setLoading(true);
-      
-      // API call for cancellation
-      const response = await fetch(`/api/bookings/${selectedBooking.id}/cancel`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          reason: cancelReason,
-          refundAmount: refundAmount
-        })
+      const res = await axios.post(`/api/bookings/${selectedBooking.id}/cancel`, {
+        reason: cancelReason,
+        refundAmount: refundAmount
+      }, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
-      
-      if (!response.ok) {
-        throw new Error('Failed to cancel booking');
+
+      if (res.data && res.data.success) {
+        setBookings(prev => prev.map(booking => 
+          booking.id === selectedBooking.id 
+            ? { 
+                ...booking, 
+                status: 'cancelled', 
+                canCancel: false,
+                cancellationReason: cancelReason,
+                refundAmount: refundAmount,
+                paymentStatus: refundAmount > 0 ? 'refunded' : 'cancelled'
+              }
+            : booking
+        ));
+
+        setCancelDialog(false);
+        setCancelReason('');
+        setSelectedBooking(null);
+
+        setSnackbar({ open: true, message: `Booking cancelled successfully! ${refundAmount > 0 ? `Refund of \u20b9${refundAmount} will be processed within 3-5 business days.` : 'No refund applicable as per cancellation policy.'}` , severity: 'success' });
+      } else {
+        setSnackbar({ open: true, message: res.data?.message || 'Failed to cancel booking', severity: 'error' });
       }
-      
-      const result = await response.json();
-      
-      // Update booking status
-      setBookings(prev => prev.map(booking => 
-        booking.id === selectedBooking.id 
-          ? { 
-              ...booking, 
-              status: 'cancelled', 
-              canCancel: false,
-              cancellationReason: cancelReason,
-              refundAmount: refundAmount,
-              paymentStatus: refundAmount > 0 ? 'refunded' : 'cancelled'
-            }
-          : booking
-      ));
-      
-      setCancelDialog(false);
-      setCancelReason('');
-      setSelectedBooking(null);
-      
-      // Show success message
-      alert(`Booking cancelled successfully! ${refundAmount > 0 ? `Refund of ₹${refundAmount} will be processed within 3-5 business days.` : 'No refund applicable as per cancellation policy.'}`);
-      
     } catch (error) {
       console.error('Failed to cancel booking:', error);
-      alert('Failed to cancel booking. Please try again.');
+      setSnackbar({ open: true, message: 'Failed to cancel booking. Please try again.', severity: 'error' });
     } finally {
       setLoading(false);
     }
@@ -218,35 +209,28 @@ const MyBookings = () => {
 
   const submitReview = async () => {
     try {
-      // API call for review submission
-      const response = await fetch(`/api/bookings/${selectedBooking.id}/review`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          rating: rating,
-          comment: reviewComment
-        })
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to submit review');
+      const res = await axios.post(`/api/bookings/${selectedBooking.id}/review`, {
+        rating: reviewData.rating,
+        comment: reviewData.comment
+      }, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+
+      if (res.data && res.data.success) {
+        setBookings(prev => prev.map(booking => 
+          booking.id === selectedBooking.id 
+            ? { ...booking, canReview: false, hasReview: true }
+            : booking
+        ));
+
+        setReviewDialog(false);
+        setSelectedBooking(null);
+        setReviewData({ rating: 5, comment: '' });
+        setSnackbar({ open: true, message: 'Review submitted successfully', severity: 'success' });
+      } else {
+        setSnackbar({ open: true, message: res.data?.message || 'Failed to submit review', severity: 'error' });
       }
-      
-      // Update booking to mark as reviewed
-      setBookings(prev => prev.map(booking => 
-        booking.id === selectedBooking.id 
-          ? { ...booking, canReview: false, hasReview: true }
-          : booking
-      ));
-      
-      setReviewDialog(false);
-      setSelectedBooking(null);
-      setReviewData({ rating: 5, comment: '' });
     } catch (error) {
       console.error('Failed to submit review:', error);
+      setSnackbar({ open: true, message: 'Failed to submit review. Please try again.', severity: 'error' });
     }
   };
 

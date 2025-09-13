@@ -204,25 +204,13 @@ const Profile = () => {
 
   const handleDeleteAccount = async () => {
     try {
-      // API call for account deletion
-      const response = await fetch('/api/user/delete-account', {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to delete account');
+      const res = await axios.delete('/api/user/delete-account', { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+      if (res.data && res.data.success) {
+        setDeleteDialog(false);
+        setSnackbar({ open: true, message: res.data.message || 'Account deletion request submitted. You will receive a confirmation email.', severity: 'info' });
+      } else {
+        setSnackbar({ open: true, message: res.data?.message || 'Failed to delete account', severity: 'error' });
       }
-      
-      setDeleteDialog(false);
-      setSnackbar({
-        open: true,
-        message: 'Account deletion request submitted. You will receive a confirmation email.',
-        severity: 'info'
-      });
     } catch (error) {
       console.error('Failed to delete account:', error);
       setSnackbar({

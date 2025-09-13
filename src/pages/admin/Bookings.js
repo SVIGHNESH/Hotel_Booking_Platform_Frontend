@@ -65,26 +65,20 @@ const Bookings = () => {
   const fetchBookings = async () => {
     try {
       setLoading(true);
-      
-      // API call to fetch all bookings
-      const response = await fetch('/api/admin/bookings', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch bookings');
+      const res = await axios.get('/api/admin/bookings', { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+      if (res.data && res.data.success) {
+        setBookings(res.data.data?.bookings || (res.data.bookings || []));
+        setTotalBookings(res.data.data?.total || res.data.total || 0);
+      } else {
+        setError(res.data?.message || 'Failed to fetch bookings');
+        setBookings([]);
+        setTotalBookings(0);
       }
-      
-      const data = await response.json();
-      setBookings(data.bookings || []);
-      setTotalBookings(data.total || 0);
     } catch (error) {
       console.error('Failed to fetch bookings:', error);
       setBookings([]);
       setTotalBookings(0);
+      setError('Failed to fetch bookings');
     } finally {
       setLoading(false);
     }

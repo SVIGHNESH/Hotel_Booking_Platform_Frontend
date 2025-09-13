@@ -64,21 +64,13 @@ const Reviews = () => {
   const fetchReviews = async () => {
     try {
       setLoading(true);
-      
-      // API call to fetch hotel reviews
-      const response = await fetch('/api/hotel/reviews', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch reviews');
+      const res = await axios.get('/api/hotel/reviews', { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+      if (res.data && res.data.success) {
+        setReviews(res.data.data?.reviews || (res.data.reviews || []));
+      } else {
+        setError(res.data?.message || 'Failed to fetch reviews');
+        setReviews([]);
       }
-      
-      const data = await response.json();
-      setReviews(data.reviews || []);
     } catch (error) {
       console.error('Fetch reviews error:', error);
       setError('Failed to fetch reviews');
