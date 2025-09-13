@@ -45,6 +45,8 @@ import {
   CalendarToday,
   Payment
 } from '@mui/icons-material';
+import Snackbar from '@mui/material/Snackbar';
+import Alert from '@mui/material/Alert';
 
 const Bookings = () => {
   const [bookings, setBookings] = useState([]);
@@ -58,6 +60,8 @@ const Bookings = () => {
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [anchorEl, setAnchorEl] = useState(null);
   const [detailDialog, setDetailDialog] = useState({ open: false, booking: null });
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [refundDialog, setRefundDialog] = useState({ open: false, booking: null, amount: 0, reason: '' });
 
   useEffect(() => {
     fetchBookings();
@@ -161,6 +165,45 @@ const Bookings = () => {
   const handleViewDetails = (booking) => {
     setDetailDialog({ open: true, booking });
     handleMenuClose();
+  };
+
+  const handleAdminChangeStatus = async (bookingId, status) => {
+    try {
+      const res = await axios.put(`/api/admin/bookings/${bookingId}/status`, { status }, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+      if (res.data && res.data.success) {
+        setBookings(prev => prev.map(b => b._id === bookingId ? res.data.data : b));
+        setSnackbar({ open: true, message: 'Booking status updated', severity: 'success' });
+      } else {
+        setSnackbar({ open: true, message: res.data?.message || 'Failed to update status', severity: 'error' });
+      }
+    } catch (error) {
+      console.error('Admin change status error:', error);
+      setSnackbar({ open: true, message: 'Failed to update status', severity: 'error' });
+    } finally {
+      handleMenuClose();
+    }
+  };
+
+  const openRefundDialog = (booking) => {
+    setRefundDialog({ open: true, booking, amount: booking.amount || 0, reason: '' });
+    handleMenuClose();
+  };
+
+  const handleProcessRefund = async () => {
+    try {
+      const { booking, amount, reason } = refundDialog;
+      const res = await axios.post(`/api/admin/bookings/${booking._id}/refund`, { amount, reason }, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+      if (res.data && res.data.success) {
+        setBookings(prev => prev.map(b => b._id === booking._id ? res.data.data : b));
+        setSnackbar({ open: true, message: 'Refund recorded', severity: 'success' });
+        setRefundDialog({ open: false, booking: null, amount: 0, reason: '' });
+      } else {
+        setSnackbar({ open: true, message: res.data?.message || 'Failed to process refund', severity: 'error' });
+      }
+    } catch (error) {
+      console.error('Process refund error:', error);
+      setSnackbar({ open: true, message: 'Failed to process refund', severity: 'error' });
+    }
   };
 
   // Summary statistics
@@ -411,9 +454,12 @@ const Bookings = () => {
         onClose={handleMenuClose}
       >
         {selectedBooking && (
-          <MenuItem onClick={() => handleViewDetails(selectedBooking)}>
-            View Details
-          </MenuItem>
+          <>
+            <MenuItem onClick={() => handleViewDetails(selectedBooking)}>View Details</MenuItem>
+            <MenuItem onClick={() => handleAdminChangeStatus(selectedBooking._id, 'confirmed')}>Mark Confirmed</MenuItem>
+            <MenuItem onClick={() => handleAdminChangeStatus(selectedBooking._id, 'cancelled')}>Mark Cancelled</MenuItem>
+            <MenuItem onClick={() => openRefundDialog(selectedBooking)}>Process Refund</MenuItem>
+          </>
         )}
       </Menu>
 
@@ -466,6 +512,31 @@ const Bookings = () => {
           <Button onClick={() => setDetailDialog({ open: false, booking: null })}>Close</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Refund Dialog */}
+      <Dialog open={refundDialog.open} onClose={() => setRefundDialog({ open: false, booking: null, amount: 0, reason: '' })} maxWidth="sm" fullWidth>
+        <DialogTitle>Process Refund</DialogTitle>
+        <DialogContent>
+          {refundDialog.booking && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Typography variant="body2">Booking: {refundDialog.booking.bookingReference}</Typography>
+              <TextField label="Amount" type="number" value={refundDialog.amount} onChange={(e) => setRefundDialog(prev => ({ ...prev, amount: Number(e.target.value) }))} />
+              <TextField label="Reason" value={refundDialog.reason} onChange={(e) => setRefundDialog(prev => ({ ...prev, reason: e.target.value }))} multiline rows={3} />
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRefundDialog({ open: false, booking: null, amount: 0, reason: '' })}>Cancel</Button>
+          <Button variant="contained" color="primary" onClick={handleProcessRefund}>Submit Refund</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar */}
+      <Snackbar open={snackbar.open} autoHideDuration={6000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+        <Alert onClose={() => setSnackbar({ ...snackbar, open: false })} severity={snackbar.severity} sx={{ width: '100%' }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };
