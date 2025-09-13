@@ -103,9 +103,23 @@ const HotelDetails = () => {
     });
   };
 
-  const toggleFavorite = () => {
-    setIsFavorite(!isFavorite);
-    // TODO: API call to add/remove from favorites
+  const toggleFavorite = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(
+        `/api/customer/favorites/${hotel._id || hotel.id}/toggle`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      if (response.data.success) {
+        setIsFavorite(!isFavorite);
+        // Optional: Show success message
+      }
+    } catch (error) {
+      console.error('Failed to toggle favorite:', error);
+      // Optional: Show error message
+    }
   };
 
   const handleShare = async () => {

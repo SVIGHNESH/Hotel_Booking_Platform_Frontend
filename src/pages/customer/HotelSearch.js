@@ -164,16 +164,29 @@ const HotelSearch = () => {
     }));
   };
 
-  const toggleFavorite = (hotelId) => {
-    setFavorites(prev => {
-      const newFavorites = new Set(prev);
-      if (newFavorites.has(hotelId)) {
-        newFavorites.delete(hotelId);
-      } else {
-        newFavorites.add(hotelId);
+  const toggleFavorite = async (hotelId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(
+        `/api/customer/favorites/${hotelId}/toggle`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      if (response.data.success) {
+        setFavorites(prev => {
+          const newFavorites = new Set(prev);
+          if (newFavorites.has(hotelId)) {
+            newFavorites.delete(hotelId);
+          } else {
+            newFavorites.add(hotelId);
+          }
+          return newFavorites;
+        });
       }
-      return newFavorites;
-    });
+    } catch (error) {
+      console.error('Failed to toggle favorite:', error);
+    }
   };
 
   const handleHotelClick = (hotelId) => {
