@@ -13,7 +13,7 @@ import VerifyEmail from './pages/auth/VerifyEmail';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
 
-// Customer Pages
+// Customer Pages 
 import CustomerDashboard from './pages/customer/Dashboard';
 import HotelSearch from './pages/customer/HotelSearch';
 import HotelDetails from './pages/customer/HotelDetails';
