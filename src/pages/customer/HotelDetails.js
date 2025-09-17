@@ -77,12 +77,10 @@ const HotelDetails = () => {
       const hotelResponse = await axios.get(`/api/customer/hotels/${id}`, { headers });
       
       if (hotelResponse.data.success) {
-        const hotelData = hotelResponse.data.data;
-        setHotel(hotelData);
-        setRooms(hotelData.rooms || []);
-        
-        // For now, set empty reviews array - reviews can be enhanced later
-        setReviews([]);
+        const responseData = hotelResponse.data.data;
+        setHotel(responseData.hotel);
+        setRooms(responseData.rooms || []);
+        setReviews(responseData.reviews || []);
       } else {
         console.error('Failed to load hotel details');
       }
@@ -219,7 +217,7 @@ const HotelDetails = () => {
               <CardMedia
                 component="img"
                 height="400"
-                image={hotel.images[selectedImageIndex]}
+                image={hotel.images?.[selectedImageIndex] || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80'}
                 alt={hotel.name}
                 sx={{ cursor: 'pointer' }}
                 onClick={() => setImageDialogOpen(true)}
@@ -239,7 +237,7 @@ const HotelDetails = () => {
               </IconButton>
             </Box>
             <Box sx={{ p: 2, display: 'flex', gap: 1, overflowX: 'auto' }}>
-              {hotel.images.map((image, index) => (
+              {(hotel.images || []).map((image, index) => (
                 <Box
                   key={index}
                   component="img"
@@ -301,12 +299,17 @@ const HotelDetails = () => {
 
                 <Box sx={{ mt: 3 }}>
                   <Typography variant="h6" gutterBottom>Policies</Typography>
-                  {hotel.policies.map((policy, index) => (
+                  {(hotel.policies || []).map((policy, index) => (
                     <Box key={index} sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                       <CheckCircle color="success" sx={{ mr: 1, fontSize: 16 }} />
                       <Typography variant="body2">{policy}</Typography>
                     </Box>
                   ))}
+                  {(!hotel.policies || hotel.policies.length === 0) && (
+                    <Typography variant="body2" color="text.secondary">
+                      No policies available
+                    </Typography>
+                  )}
                 </Box>
               </Box>
             </TabPanel>
@@ -322,7 +325,7 @@ const HotelDetails = () => {
                           <CardMedia
                             component="img"
                             height="200"
-                            image={room.images[0]}
+                            image={room.images?.[0] || 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80'}
                             alt={room.name}
                             sx={{ borderRadius: 1 }}
                           />
@@ -337,17 +340,17 @@ const HotelDetails = () => {
                             <Grid item xs={6} sm={3}>
                               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                                 <People color="action" sx={{ mr: 0.5, fontSize: 16 }} />
-                                <Typography variant="body2">{room.maxGuests} guests</Typography>
+                                <Typography variant="body2">{room.capacity?.adults || 0} guests</Typography>
                               </Box>
                             </Grid>
                             <Grid item xs={6} sm={3}>
                               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                                 <Room color="action" sx={{ mr: 0.5, fontSize: 16 }} />
-                                <Typography variant="body2">{room.maxOccupancy} guests max</Typography>
+                                <Typography variant="body2">{room.capacity?.adults + room.capacity?.children || 0} max capacity</Typography>
                               </Box>
                             </Grid>
                             <Grid item xs={12} sm={6}>
-                              <Typography variant="body2"><strong>Type:</strong> {room.type || 'Standard'}</Typography>
+                              <Typography variant="body2"><strong>Type:</strong> {room.roomType || 'Standard'}</Typography>
                             </Grid>
                           </Grid>
 
@@ -361,7 +364,7 @@ const HotelDetails = () => {
                             <Box>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <Typography variant="h6" color="primary">
-                                  ₹{room.pricePerNight}
+                                  ₹{room.pricing?.basePrice || 0}
                                 </Typography>
                               </Box>
                               <Typography variant="body2" color="text.secondary">
@@ -431,17 +434,32 @@ const HotelDetails = () => {
               <Box sx={{ px: 3 }}>
                 <Typography variant="h6" gutterBottom>Hotel Amenities</Typography>
                 <Grid container spacing={2}>
-                  {hotel.amenities.map((amenity) => (
-                    <Grid item xs={12} sm={6} md={4} key={amenity.id}>
+                  {(hotel.amenities || []).map((amenity, index) => (
+                    <Grid item xs={12} sm={6} md={4} key={amenity.id || index}>
                       <Box sx={{ display: 'flex', alignItems: 'center', p: 2, border: '1px solid', borderColor: 'grey.300', borderRadius: 1 }}>
-                        {amenity.icon}
-                        <Typography sx={{ ml: 1 }}>{amenity.name}</Typography>
-                        {amenity.available && (
-                          <CheckCircle color="success" sx={{ ml: 'auto', fontSize: 16 }} />
+                        {typeof amenity === 'string' ? (
+                          <>
+                            <Typography sx={{ ml: 1 }}>{amenity}</Typography>
+                          </>
+                        ) : (
+                          <>
+                            {amenity.icon}
+                            <Typography sx={{ ml: 1 }}>{amenity.name}</Typography>
+                            {amenity.available && (
+                              <CheckCircle color="success" sx={{ ml: 'auto', fontSize: 16 }} />
+                            )}
+                          </>
                         )}
                       </Box>
                     </Grid>
                   ))}
+                  {(!hotel.amenities || hotel.amenities.length === 0) && (
+                    <Grid item xs={12}>
+                      <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
+                        No amenities information available
+                      </Typography>
+                    </Grid>
+                  )}
                 </Grid>
               </Box>
             </TabPanel>
@@ -454,7 +472,7 @@ const HotelDetails = () => {
             <Typography variant="h6" gutterBottom>Quick Booking</Typography>
             <Box sx={{ textAlign: 'center', mb: 3 }}>
               <Typography variant="h4" color="primary">
-                From ₹{Math.min(...rooms.map(r => r.price))}
+                From ₹{rooms.length > 0 ? Math.min(...rooms.map(r => r.pricing?.basePrice || 0)) : 0}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 per night
@@ -507,7 +525,7 @@ const HotelDetails = () => {
         </DialogTitle>
         <DialogContent>
           <ImageList cols={2} gap={8}>
-            {hotel.images.map((image, index) => (
+            {(hotel.images || []).map((image, index) => (
               <ImageListItem key={index}>
                 <img src={image} alt={`${hotel.name} ${index + 1}`} loading="lazy" />
               </ImageListItem>

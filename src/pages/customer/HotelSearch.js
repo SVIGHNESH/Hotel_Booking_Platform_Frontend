@@ -190,7 +190,7 @@ const HotelSearch = () => {
   };
 
   const handleHotelClick = (hotelId) => {
-    navigate(`/customer/hotel/${hotelId}`);
+    navigate(`/hotels/${hotelId}`);
   };
 
   return (
@@ -438,7 +438,7 @@ const HotelSearch = () => {
                           </Box>
                           
                           <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                            <Rating value={hotel.rating || 0} precision={0.1} size="small" readOnly />
+                            <Rating value={hotel.rating?.average || 0} precision={0.1} size="small" readOnly />
                             <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
                               ({hotel.reviewCount || 0} reviews)
                             </Typography>
@@ -479,7 +479,14 @@ const HotelSearch = () => {
                                 per night
                               </Typography>
                             </Box>
-                            <Button variant="contained" size="small">
+                            <Button
+                              variant="contained"
+                              size="small"
+                              onClick={e => {
+                                e.stopPropagation();
+                                handleHotelClick(hotel._id || hotel.id);
+                              }}
+                            >
                               View Details
                             </Button>
                           </Box>

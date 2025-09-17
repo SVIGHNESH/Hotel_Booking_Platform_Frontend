@@ -50,6 +50,9 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
     return <Navigate to="/login" replace />;
   }
 
+  // Enforce email verification for all roles except admin
+
+
   if (allowedRoles.length > 0 && !allowedRoles.includes(user?.role)) {
     return <Navigate to="/" replace />;
   }
@@ -90,8 +93,12 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/search" element={<HotelSearch />} />
           <Route path="/hotels/:id" element={<HotelDetails />} />
-          <Route path="/hotels/:id/book" element={<RoomBooking />} />
-          
+          <Route path="/hotels/:id/book" element={
+            <ProtectedRoute allowedRoles={['customer']}>
+              <RoomBooking />
+            </ProtectedRoute>
+          } />
+
           {/* Auth Routes */}
           <Route
             path="/login"

@@ -72,6 +72,9 @@ const Profile = () => {
   });
 
   const [newAmenity, setNewAmenity] = useState('');
+  const [hotelImages, setHotelImages] = useState([]);
+  const [selectedImages, setSelectedImages] = useState([]);
+  const [uploading, setUploading] = useState(false);
 
   const availableAmenities = [
     'Free WiFi', 'Swimming Pool', 'Fitness Center', 'Spa', 'Restaurant', 
@@ -85,8 +88,60 @@ const Profile = () => {
   ];
 
   useEffect(() => {
+    // Fetch hotel profile and images
+    const fetchHotelProfile = async () => {
+      setLoading(true);
+      try {
+        const res = await axios.get('/api/hotel/profile', {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        });
+        if (res.data.success) {
+          setHotelData(res.data.data);
+          setHotelExists(true);
+          setHotelImages(res.data.data.images || []);
+        } else {
+          setError(res.data.message || 'Failed to load hotel profile');
+        }
+      } catch (err) {
+        setError('Failed to load hotel profile');
+      } finally {
+        setLoading(false);
+      }
+    };
     fetchHotelProfile();
   }, []);
+
+  const handleImageChange = (e) => {
+    setSelectedImages(Array.from(e.target.files));
+  };
+
+  const handleImageUpload = async () => {
+    if (selectedImages.length === 0) return;
+    setUploading(true);
+    setError('');
+    setSuccess('');
+    try {
+      const formData = new FormData();
+      selectedImages.forEach(img => formData.append('images', img));
+      const res = await axios.post('/api/hotel/profile/images', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      if (res.data.success) {
+        setHotelImages(res.data.data.images);
+        setSuccess('Images uploaded successfully');
+        setSelectedImages([]);
+      } else {
+        setError(res.data.message || 'Failed to upload images');
+      }
+    } catch (err) {
+      setError('Failed to upload images');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const fetchHotelProfile = async () => {
     try {
@@ -594,6 +649,58 @@ const Profile = () => {
                   />
                 </Grid>
               </Grid>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Hotel Images Section */}
+        <Grid item xs={12}>
+          <Card elevation={3}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>Hotel Images</Typography>
+              <Grid container spacing={2}>
+                {hotelImages && hotelImages.length > 0 ? hotelImages.map((img, idx) => (
+                  <Grid item key={idx} xs={6} sm={4} md={3}>
+                    <Card>
+                      <CardContent>
+                        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                          <img src={`/${img}`} alt={`Hotel ${idx + 1}`} style={{ width: '100%', maxHeight: 120, objectFit: 'cover', borderRadius: 8 }} />
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                )) : (
+                  <Grid item xs={12}><Typography color="text.secondary">No images uploaded yet.</Typography></Grid>
+                )}
+              </Grid>
+              <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  style={{ display: 'none' }}
+                  id="hotel-image-upload"
+                />
+                <label htmlFor="hotel-image-upload">
+                  <Button variant="outlined" component="span" startIcon={<Add />}>Select Images</Button>
+                </label>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  disabled={selectedImages.length === 0 || uploading}
+                  onClick={handleImageUpload}
+                >
+                  {uploading ? 'Uploading...' : 'Upload Images'}
+                </Button>
+              </Box>
+              {selectedImages.length > 0 && (
+                <Box sx={{ mt: 1 }}>
+                  <Typography variant="body2">Selected: {selectedImages.map(img => img.name).join(', ')}</Typography>
+                </Box>
+              )}
+              {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
+              {success && <Alert severity="success" sx={{ mt: 2 }}>{success}</Alert>}
             </CardContent>
           </Card>
         </Grid>
