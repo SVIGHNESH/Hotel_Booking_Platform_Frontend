@@ -359,13 +359,18 @@ const HotelDetails = () => {
                               <Chip key={index} label={amenity} size="small" variant="outlined" />
                             ))}
                           </Box>
-
                           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <Box>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Typography variant="h6" color="primary">
-                                  ₹{room.pricing?.basePrice || 0}
-                                </Typography>
+                                {typeof room.pricing?.basePrice === 'number' && room.pricing?.basePrice > 0 ? (
+                                  <Typography variant="h6" color="primary">
+                                    ₹{room.pricing.basePrice.toLocaleString()}
+                                  </Typography>
+                                ) : (
+                                  <Typography variant="h6" color="text.secondary">
+                                    Contact for price
+                                  </Typography>
+                                )}
                               </Box>
                               <Typography variant="body2" color="text.secondary">
                                 per night
@@ -471,9 +476,24 @@ const HotelDetails = () => {
           <Paper elevation={2} sx={{ p: 3, position: 'sticky', top: 20 }}>
             <Typography variant="h6" gutterBottom>Quick Booking</Typography>
             <Box sx={{ textAlign: 'center', mb: 3 }}>
-              <Typography variant="h4" color="primary">
-                From ₹{rooms.length > 0 ? Math.min(...rooms.map(r => r.pricing?.basePrice || 0)) : 0}
-              </Typography>
+              {(() => {
+                const validPrices = rooms
+                  .map(r => r.pricing?.basePrice)
+                  .filter(price => typeof price === 'number' && price > 0);
+                if (validPrices.length > 0) {
+                  return (
+                    <Typography variant="h4" color="primary">
+                      From ₹{Math.min(...validPrices).toLocaleString()}
+                    </Typography>
+                  );
+                } else {
+                  return (
+                    <Typography variant="h4" color="text.secondary">
+                      Contact for price
+                    </Typography>
+                  );
+                }
+              })()}
               <Typography variant="body2" color="text.secondary">
                 per night
               </Typography>

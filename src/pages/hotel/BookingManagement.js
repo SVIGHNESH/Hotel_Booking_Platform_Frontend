@@ -43,7 +43,8 @@ import {
   Phone,
   Email,
   CalendarToday,
-  Receipt
+  Receipt,
+  Edit
 } from '@mui/icons-material';
 
 const BookingManagement = () => {
@@ -64,6 +65,10 @@ const BookingManagement = () => {
   const [cancelReason, setCancelReason] = useState('');
   const [refundAmount, setRefundAmount] = useState(0);
   const [cancelLoading, setCancelLoading] = useState(false);
+
+  // Edit booking states
+  const [editDialog, setEditDialog] = useState(false);
+  const [editBookingData, setEditBookingData] = useState(null);
 
   // Filter bookings function
   const filterBookings = useCallback(() => {
@@ -277,6 +282,36 @@ const BookingManagement = () => {
     }
   };
 
+  const handleEditBooking = (booking) => {
+    setEditBookingData({ ...booking });
+    setEditDialog(true);
+  };
+
+  const handleEditBookingChange = (field, value) => {
+    setEditBookingData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleEditBookingSave = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const payload = {
+        ...(editBookingData.checkIn && { checkIn: editBookingData.checkIn }),
+        ...(editBookingData.checkOut && { checkOut: editBookingData.checkOut })
+      };
+      const res = await axios.put(`/api/hotel/bookings/${editBookingData.id}`, payload, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.data && res.data.success) {
+        const updated = res.data.data;
+        setBookings(bookings.map(b => b.id === editBookingData.id ? { ...b, checkIn: updated.checkIn, checkOut: updated.checkOut, nights: updated.nights } : b));
+        setSnackbar({ open: true, message: 'Booking updated successfully!', severity: 'success' });
+        setEditDialog(false);
+      } else {
+        setSnackbar({ open: true, message: res.data?.message || 'Failed to update booking', severity: 'error' });
+      }
+    } catch (error) {
+      setSnackbar({ open: true, message: 'Failed to update booking', severity: 'error' });
+    }
+  };
+
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -326,6 +361,7 @@ const BookingManagement = () => {
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 label="Status Filter"
+                variant="outlined"
               >
                 <MenuItem value="all">All Statuses</MenuItem>
                 <MenuItem value="pending">Pending</MenuItem>
@@ -485,6 +521,9 @@ const BookingManagement = () => {
                             <Cancel />
                           </IconButton>
                         )}
+                        <IconButton size="small" onClick={() => handleEditBooking(booking)} disabled={!['pending','confirmed'].includes(booking.status)}>
+                          <Edit />
+                        </IconButton>
                       </Box>
                     </TableCell>
                   </TableRow>
@@ -755,6 +794,7 @@ const BookingManagement = () => {
                     value={cancelReason}
                     label="Select Reason"
                     onChange={(e) => setCancelReason(e.target.value)}
+                    variant="outlined"
                   >
                     <MenuItem value="customer_request">Customer Request</MenuItem>
                     <MenuItem value="overbooking">Overbooking</MenuItem>
@@ -797,6 +837,48 @@ const BookingManagement = () => {
           >
             {cancelLoading ? 'Cancelling...' : 'Confirm Cancellation'}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Booking Dialog */}
+      <Dialog open={editDialog} onClose={() => setEditDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Edit Booking</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2}>
+            <Grid item xs={12}>
+              <TextField
+                label="Check-In Date"
+                type="date"
+                value={editBookingData?.checkIn?.slice(0,10) || ''}
+                onChange={e => handleEditBookingChange('checkIn', e.target.value)}
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                label="Check-Out Date"
+                type="date"
+                value={editBookingData?.checkOut?.slice(0,10) || ''}
+                onChange={e => handleEditBookingChange('checkOut', e.target.value)}
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                label="Guest Name"
+                value={editBookingData?.customer?.name || ''}
+                onChange={e => handleEditBookingChange('customer', { ...editBookingData.customer, name: e.target.value })}
+                fullWidth
+              />
+            </Grid>
+            {/* Add more fields as needed */}
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditDialog(false)}>Cancel</Button>
+          <Button onClick={handleEditBookingSave} variant="contained">Save</Button>
         </DialogActions>
       </Dialog>
 

@@ -220,12 +220,31 @@ const RoomManagement = () => {
     setTimeout(() => setSuccess(''), 3000);
   };
 
-  const handleToggleAvailability = (roomId) => {
-    setRooms(prev => prev.map(room => 
-      room._id === roomId 
-        ? { ...room, isAvailable: !room.isAvailable }
-        : room
-    ));
+  const [, setToggleError] = useState('');
+  const [, setToggleSuccess] = useState('');
+  const handleToggleAvailability = async (roomId) => {
+    setToggleError('');
+    setToggleSuccess('');
+    const room = rooms.find(r => r._id === roomId);
+    if (!room) return;
+    const newAvailability = !room.isAvailable;
+    try {
+      const token = localStorage.getItem('token');
+      const headers = { Authorization: `Bearer ${token}` };
+      // Use PUT to match backend route
+      const response = await axios.put(`/api/hotel/rooms/${roomId}/availability`, {
+        isAvailable: newAvailability
+      }, { headers });
+      if (response.data.success) {
+        setToggleSuccess(`Room ${room.roomNumber} availability updated.`);
+        fetchRoomsAndBookings(); // Refetch rooms to update UI
+        setTimeout(() => setToggleSuccess(''), 2000);
+      } else {
+        setToggleError(response.data.message || 'Failed to update availability.');
+      }
+    } catch (err) {
+      setToggleError(err.response?.data?.message || 'Failed to update availability.');
+    }
   };
 
   // Add Room Functions
@@ -543,7 +562,9 @@ const RoomManagement = () => {
                   </TableCell>
                   <TableCell>
                     <Typography variant="body2" fontWeight="bold">
-                      ₹{room.price.toLocaleString()}
+                      {typeof room.pricing?.basePrice === 'number' && room.pricing?.basePrice > 0
+                        ? `₹${room.pricing.basePrice.toLocaleString()}`
+                        : 'Contact for price'}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
                       per night
@@ -553,7 +574,7 @@ const RoomManagement = () => {
                     <FormControlLabel
                       control={
                         <Switch
-                          checked={room.isAvailable}
+                          checked={!!room.isAvailable}
                           onChange={() => handleToggleAvailability(room._id)}
                           size="small"
                         />
@@ -662,11 +683,13 @@ const RoomManagement = () => {
                         Room {room.roomNumber}
                       </Typography>
                       <Typography variant="body2" color="text.secondary" gutterBottom>
-                        {room.roomType} - ₹{room.price.toLocaleString()}
+                        {room.roomType} - {typeof room.pricing?.basePrice === 'number' && room.pricing?.basePrice > 0
+                          ? `₹${room.pricing.basePrice.toLocaleString()}`
+                          : 'Contact for price'}
                       </Typography>
                       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                         <Chip
-                          label={room.status}
+                          label={`${room.roomType} - ${typeof room.pricing?.basePrice === 'number' && room.pricing?.basePrice > 0 ? `₹${room.pricing.basePrice.toLocaleString()}` : 'Contact for price'}`}
                           color={getRoomStatusColor(room.status)}
                           size="small"
                         />
@@ -753,6 +776,7 @@ const RoomManagement = () => {
               <FormControl fullWidth>
                 <InputLabel>Block Type</InputLabel>
                 <Select
+                  variant="outlined"
                   value={blockType}
                   label="Block Type"
                   onChange={(e) => setBlockType(e.target.value)}
@@ -803,6 +827,7 @@ const RoomManagement = () => {
             <FormControl fullWidth required>
               <InputLabel>Room Type</InputLabel>
               <Select
+                variant="outlined"
                 value={newRoom.roomType}
                 label="Room Type"
                 onChange={(e) => setNewRoom({ ...newRoom, roomType: e.target.value })}
@@ -885,6 +910,7 @@ const RoomManagement = () => {
             <FormControl fullWidth>
               <InputLabel>Amenities</InputLabel>
               <Select
+                variant="outlined"
                 multiple
                 value={newRoom.amenities}
                 onChange={(e) => setNewRoom({ ...newRoom, amenities: e.target.value })}

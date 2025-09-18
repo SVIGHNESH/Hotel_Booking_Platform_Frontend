@@ -98,7 +98,9 @@ const Profile = () => {
         if (res.data.success) {
           setHotelData(res.data.data);
           setHotelExists(true);
-          setHotelImages(res.data.data.images || []);
+          // images may be array of strings or objects {url, publicId}
+            const imgs = (res.data.data.images || []).map(img => img.url || img);
+          setHotelImages(imgs);
         } else {
           setError(res.data.message || 'Failed to load hotel profile');
         }
@@ -130,14 +132,15 @@ const Profile = () => {
         }
       });
       if (res.data.success) {
-        setHotelImages(res.data.data.images);
+        const imgs = (res.data.data.urls || res.data.data.images || []).map(img => img.url || img);
+        setHotelImages(imgs);
         setSuccess('Images uploaded successfully');
         setSelectedImages([]);
       } else {
         setError(res.data.message || 'Failed to upload images');
       }
     } catch (err) {
-      setError('Failed to upload images');
+      setError(err.response?.data?.message || 'Failed to upload images');
     } finally {
       setUploading(false);
     }
@@ -664,7 +667,12 @@ const Profile = () => {
                     <Card>
                       <CardContent>
                         <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-                          <img src={`/${img}`} alt={`Hotel ${idx + 1}`} style={{ width: '100%', maxHeight: 120, objectFit: 'cover', borderRadius: 8 }} />
+                          <img
+                            src={typeof img === 'string' ? img : (img?.url || '')}
+                            alt={`Hotel ${idx + 1}`}
+                            style={{ width: '100%', maxHeight: 120, objectFit: 'cover', borderRadius: 8 }}
+                            onError={(e) => { e.currentTarget.style.opacity = 0.3; }}
+                          />
                         </Box>
                       </CardContent>
                     </Card>

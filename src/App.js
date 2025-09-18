@@ -161,6 +161,14 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/customer/booking"
+            element={
+              <ProtectedRoute allowedRoles={['customer']}>
+                <RoomBooking />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Hotel Routes */}
           <Route
